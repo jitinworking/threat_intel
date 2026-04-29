@@ -1,8 +1,9 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { Shield, Activity, AlertTriangle, RefreshCw, Rss, Zap, Database, Sparkles, TrendingUp, ShieldAlert, Tag } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
-const BACKEND = 'http://localhost:3001';
+const BACKEND = `${API_BASE_URL}`;
 
 interface Stats {
   totalIocs: number;

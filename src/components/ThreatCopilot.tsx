@@ -1,3 +1,4 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, User, Send, X, Terminal, Maximize2, Minimize2 } from 'lucide-react';
 import { mockApts } from '../data/mockApts';
@@ -63,7 +64,7 @@ export const ThreatCopilot: React.FC = () => {
     const lookingForIocs = q.includes('ioc') || q.includes('ip') || q.includes('domain') || q.includes('hash');
     if (specificApt && lookingForIocs) {
        try {
-           const res = await fetch('http://localhost:3001/api/iocs');
+           const res = await fetch(`${API_BASE_URL}/api/iocs`);
            const data = await res.json();
            
            // Simulate finding 3 IoCs linked to this APT from the global database

@@ -1,3 +1,4 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Copy, Download, RefreshCw, Zap, Globe, X, FileJson, Activity, Shield, Map, Building, Server, Calendar, Sparkles } from 'lucide-react';
 import { exportToCSV, exportToSTIX21, exportToPlainText } from '../utils/exportUtils';
@@ -29,7 +30,7 @@ const cleanIoC = (ioc: string, type: string) => {
   return ioc;
 };
 
-const BACKEND = 'http://localhost:3001';
+const BACKEND = `${API_BASE_URL}`;
 
 export const IoCFeed: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -183,7 +184,7 @@ export const IoCFeed: React.FC = () => {
 
     // WebSocket for real-time updates
     try {
-      const ws = new WebSocket('ws://localhost:3001');
+      const ws = new WebSocket(`${WS_BASE_URL}`);
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === 'new_iocs') {

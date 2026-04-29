@@ -1,3 +1,4 @@
+import { API_BASE_URL, WS_BASE_URL } from './config';
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Bell, X, Zap } from 'lucide-react';
 import { Layout } from './components/Layout';
@@ -42,7 +43,7 @@ function App() {
   };
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:3001');
+    const ws = new WebSocket(`${WS_BASE_URL}`);
     
     ws.onmessage = (event) => {
       try {

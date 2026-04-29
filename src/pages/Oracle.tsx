@@ -1,3 +1,4 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, AlertCircle, Shield, Globe, Clock, Zap, Activity } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
@@ -16,7 +17,7 @@ export const Oracle: React.FC = () => {
   useEffect(() => {
     const fetchOracle = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/oracle/forecast');
+        const res = await fetch(`${API_BASE_URL}/api/oracle/forecast`);
         if (res.ok) {
           const data = await res.json();
           setOracleData(data);

@@ -1,7 +1,8 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Newspaper, ExternalLink, Calendar, ShieldAlert, Globe, Lock, Zap } from 'lucide-react';
 
-const BACKEND = 'http://localhost:3001';
+const BACKEND = `${API_BASE_URL}`;
 
 interface NewsItem {
   id: number;
@@ -67,7 +68,7 @@ export const NewsPortal: React.FC = () => {
 
     try {
       for (const indicator of allIocs) {
-        await fetch('http://localhost:3001/api/iocs', {
+        await fetch(`${API_BASE_URL}/api/iocs`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

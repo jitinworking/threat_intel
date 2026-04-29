@@ -1,3 +1,4 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Upload, Globe, Box, Shield, Activity, FileText, Clock } from 'lucide-react';
 
@@ -26,7 +27,7 @@ export const Sandbox: React.FC = () => {
     
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/sandbox', {
+      const res = await fetch(`${API_BASE_URL}/api/sandbox`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ioc: input, type: submissionType })

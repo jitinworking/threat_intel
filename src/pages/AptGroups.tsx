@@ -1,3 +1,4 @@
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { MapPin, Code, Search, Shield, ChevronRight, X, Target, Copy, Check, Terminal, Activity, Globe } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
@@ -17,7 +18,7 @@ export const AptGroups: React.FC = () => {
         try {
           // Search for any of the malware families in our local DB
           const searchPromises = apt.malware.slice(0, 2).map(mw => 
-            fetch(`http://localhost:3001/api/iocs?search=${encodeURIComponent(mw)}&limit=1`)
+            fetch(`${API_BASE_URL}/api/iocs?search=${encodeURIComponent(mw)}&limit=1`)
               .then(r => r.json())
           );
           const results = await Promise.all(searchPromises);
