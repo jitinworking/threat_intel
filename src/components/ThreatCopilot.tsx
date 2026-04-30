@@ -1,4 +1,4 @@
-import { API_BASE_URL, WS_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, User, Send, X, Terminal, Maximize2, Minimize2 } from 'lucide-react';
 import { mockApts } from '../data/mockApts';

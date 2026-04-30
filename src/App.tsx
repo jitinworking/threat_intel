@@ -1,4 +1,4 @@
-import { API_BASE_URL, WS_BASE_URL } from './config';
+import { WS_BASE_URL } from './config';
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Bell, X, Zap } from 'lucide-react';
 import { Layout } from './components/Layout';

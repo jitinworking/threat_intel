@@ -1,4 +1,4 @@
-import { API_BASE_URL, WS_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { MapPin, Code, Search, Shield, ChevronRight, X, Target, Copy, Check, Terminal, Activity, Globe } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';

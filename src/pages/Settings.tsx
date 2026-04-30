@@ -1,4 +1,4 @@
-import { API_BASE_URL, WS_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Plus, Trash2, Rss, Key, Bell, Mail, Send, Globe, RefreshCw } from 'lucide-react';
 import { useFeeds } from '../hooks/useFeeds';

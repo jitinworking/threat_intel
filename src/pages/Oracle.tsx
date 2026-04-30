@@ -1,4 +1,4 @@
-import { API_BASE_URL, WS_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, AlertCircle, Shield, Globe, Clock, Zap, Activity } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';

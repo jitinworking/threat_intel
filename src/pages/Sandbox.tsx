@@ -1,4 +1,4 @@
-import { API_BASE_URL, WS_BASE_URL } from '../config';
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Upload, Globe, Box, Shield, Activity, FileText, Clock } from 'lucide-react';
 
