@@ -5,8 +5,13 @@ import { getDB } from '../db.js';
 // This adapter checks settings and gracefully skips if no key is configured
 export async function pollTwitter() {
   const db = getDB();
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'twitter_bearer_token'").get();
-  const token = row?.value;
+  let token;
+  try {
+    const res = await db.execute("SELECT value FROM settings WHERE key = 'twitter_bearer_token'");
+    token = res.rows.length > 0 ? res.rows[0].value : null;
+  } catch (e) {
+    token = null;
+  }
 
   if (!token) {
     console.log('[Twitter] No bearer token configured. Skipping.');
@@ -32,9 +37,10 @@ export async function pollTwitter() {
       if (!json.data) continue;
 
       const insertSql = `
-        INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
+        INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
         VALUES (?, ?, 'social_intel', 'Twitter Intel', ?, ?, 55, 'Twitter', ?, ?)
-      `;
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
+    `;
 
       const batch = [];
     // begin batch

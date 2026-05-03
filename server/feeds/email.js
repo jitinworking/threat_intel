@@ -4,13 +4,18 @@ import { getDB } from '../db.js';
 // NOTE: Requires the 'imapflow' package. Install with: npm install imapflow
 export async function pollEmail() {
   const db = getDB();
-  const hostRow = db.prepare("SELECT value FROM settings WHERE key = 'imap_host'").get();
-  const userRow = db.prepare("SELECT value FROM settings WHERE key = 'imap_user'").get();
-  const passRow = db.prepare("SELECT value FROM settings WHERE key = 'imap_password'").get();
+  let host = null;
+  let user = null;
+  let pass = null;
 
-  const host = hostRow?.value;
-  const user = userRow?.value;
-  const pass = passRow?.value;
+  try {
+    const res1 = await db.execute("SELECT value FROM settings WHERE key = 'imap_host'");
+    host = res1.rows.length > 0 ? res1.rows[0].value : null;
+    const res2 = await db.execute("SELECT value FROM settings WHERE key = 'imap_user'");
+    user = res2.rows.length > 0 ? res2.rows[0].value : null;
+    const res3 = await db.execute("SELECT value FROM settings WHERE key = 'imap_password'");
+    pass = res3.rows.length > 0 ? res3.rows[0].value : null;
+  } catch(e) {}
 
   if (!host || !user || !pass) {
     console.log('[Email] No IMAP credentials configured. Skipping.');
@@ -43,9 +48,10 @@ export async function pollEmail() {
         const domains = text.match(/[a-zA-Z0-9-]+\[\.\][a-zA-Z]{2,}/g) || [];
 
         const insertSql = `
-          INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags)
+          INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags)
           VALUES (?, ?, 'email_intel', 'Email Ingested', 'email', 'Email Feed', 65, 'Email', '["email"]')
-        `;
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
+    `;
 
         const all = [
           ...sha256s.map(h => ({ ioc: h, type: 'sha256' })),

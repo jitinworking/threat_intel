@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Bell, X, Zap } from 'lucide-react';
 import { Layout } from './components/Layout';
 import { ThemeProvider } from './context/ThemeContext';
+import { NotebookProvider } from './context/NotebookContext';
 import { Dashboard } from './pages/Dashboard';
 import { IoCFeed } from './pages/IoCFeed';
 import { CveFeed } from './pages/CveFeed';
@@ -14,8 +15,13 @@ import { MitreAttack } from './pages/MitreAttack';
 import { NewsPortal } from './pages/NewsPortal';
 import { ThreatGraph } from './pages/ThreatGraph';
 import { AttackSurface } from './pages/AttackSurface';
+import { BlastRadius } from './pages/BlastRadius';
+import { AdversaryEmulation } from './pages/AdversaryEmulation';
+import { ShadowMapper } from './pages/ShadowMapper';
+import { RansomwareTracker } from './pages/RansomwareTracker';
 import { DarkWebMonitor } from './pages/DarkWebMonitor';
 import { Oracle } from './pages/Oracle';
+import { PayloadAnalyzer } from './pages/PayloadAnalyzer';
 import { Sandbox } from './pages/Sandbox';
 
 interface Toast {
@@ -84,7 +90,12 @@ function App() {
       case 'vulnerabilities': return <CveFeed />;
       case 'geomap': return <GeoMap />;
       case 'hunting': return <HuntingHub />;
+      case 'blast-radius': return <BlastRadius />;
+      case 'emulation': return <AdversaryEmulation />;
+      case 'shadow-mapper': return <ShadowMapper />;
+      case 'ransomware': return <RansomwareTracker />;
       case 'oracle': return <Oracle />;
+      case 'analyzer': return <PayloadAnalyzer />;
       case 'news': return <NewsPortal />;
       case 'sandbox': return <Sandbox />;
       case 'settings': return <Settings />;
@@ -94,27 +105,29 @@ function App() {
 
   return (
     <ThemeProvider>
-      <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-        {renderContent()}
-        
-        {/* Toast Container */}
-        <div className="toast-container">
-          {toasts.map(toast => (
-            <div key={toast.id} className={`toast toast-${toast.type}`}>
-              <div className="flex items-start gap-3 w-full">
-                {toast.icon || <Bell size={16} className="text-primary" />}
-                <div className="toast-content">
-                  <div className="toast-title">{toast.title}</div>
-                  <div className="toast-message">{toast.message}</div>
+      <NotebookProvider>
+        <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+          {renderContent()}
+          
+          {/* Toast Container */}
+          <div className="toast-container">
+            {toasts.map(toast => (
+              <div key={toast.id} className={`toast toast-${toast.type}`}>
+                <div className="flex items-start gap-3 w-full">
+                  {toast.icon || <Bell size={16} className="text-primary" />}
+                  <div className="toast-content">
+                    <div className="toast-title">{toast.title}</div>
+                    <div className="toast-message">{toast.message}</div>
+                  </div>
+                  <button onClick={() => removeToast(toast.id)} className="toast-close">
+                    <X size={14} />
+                  </button>
                 </div>
-                <button onClick={() => removeToast(toast.id)} className="toast-close">
-                  <X size={14} />
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
-      </Layout>
+            ))}
+          </div>
+        </Layout>
+      </NotebookProvider>
     </ThemeProvider>
   );
 }

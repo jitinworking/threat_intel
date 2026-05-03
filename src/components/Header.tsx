@@ -1,9 +1,11 @@
 import React from 'react';
-import { Search, Bell, User, Sun, Moon } from 'lucide-react';
+import { Search, Bell, User, Sun, Moon, BookOpen } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useNotebook } from '../context/NotebookContext';
 
 export const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
+  const { toggleNotebook } = useNotebook();
 
   return (
     <header className="glass-panel" style={{ borderRadius: 0, borderTop: 'none', borderRight: 'none', borderLeft: 'none', zIndex: 10 }}>
@@ -21,6 +23,14 @@ export const Header: React.FC = () => {
 
         {/* Right Actions */}
         <div className="flex items-center gap-4">
+          <button 
+            onClick={toggleNotebook}
+            className="glass-panel p-2.5 flex items-center justify-center hover:text-primary transition-all shadow-none border-white/10"
+            title="Toggle Analyst Notebook"
+          >
+            <BookOpen size={18} className="text-primary" />
+          </button>
+
           <button 
             onClick={toggleTheme}
             className="glass-panel p-2.5 flex items-center justify-center hover:text-primary transition-all shadow-none border-white/10"

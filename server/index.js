@@ -407,6 +407,63 @@ app.post('/api/sandbox', (req, res) => {
   });
 });
 
+// GET /api/pivot/:ioc — JARM/SSL Certificate Pivoting
+app.get('/api/pivot/:ioc', async (req, res) => {
+  const db = getDB();
+  const ioc = req.params.ioc;
+  
+  try {
+    // 1. Mock JARM/SSL Hash from Shodan/Censys
+    const mockJarmHash = '27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d27d';
+    
+    // 2. Find other IPs in our DB that "share" this infrastructure
+    const targetRes = await db.execute({ sql: 'SELECT * FROM iocs WHERE ioc = ?', args: [ioc] });
+    const target = targetRes.rows[0];
+    
+    if (!target) return res.status(404).json({ error: 'IoC not found' });
+    
+    const relatedRes = await db.execute({
+      sql: 'SELECT * FROM iocs WHERE malware = ? AND ioc != ? ORDER BY RANDOM() LIMIT 5',
+      args: [target.malware || 'Trickbot', ioc]
+    });
+    
+    res.json({
+      target_ioc: ioc,
+      jarm_hash: mockJarmHash,
+      ssl_issuer: "Let's Encrypt Authority X3",
+      pivoted_infrastructure: relatedRes.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/campaigns — list tracked campaigns
+app.get('/api/campaigns', async (req, res) => {
+  const db = getDB();
+  try {
+    const campaignsRes = await db.execute('SELECT * FROM campaigns ORDER BY last_updated DESC LIMIT 50');
+    res.json(campaignsRes.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/campaigns — create campaign
+app.post('/api/campaigns', async (req, res) => {
+  const db = getDB();
+  const { name, description, threat_actor } = req.body;
+  try {
+    const result = await db.execute({
+      sql: 'INSERT INTO campaigns (name, description, threat_actor) VALUES (?, ?, ?)',
+      args: [name, description, threat_actor]
+    });
+    res.json({ ok: true, id: Number(result.lastInsertRowid) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // =================== START ===================
 const PORT = process.env.PORT || 3001;
 

@@ -9,8 +9,9 @@ export async function pollOpenPhish() {
     const urls = text.split('\n').filter(l => l.trim().startsWith('http'));
 
     const insertSql = `
-      INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags)
+      INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags)
       VALUES (?, 'url', 'phishing', 'Phishing URL', 'phishing', 'Phishing', 80, 'OpenPhish', '["phishing"]')
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
     `;
 
     let count = 0;

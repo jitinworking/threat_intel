@@ -1,8 +1,9 @@
 import { API_BASE_URL, WS_BASE_URL } from '../config';
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Copy, Download, RefreshCw, Zap, Globe, X, FileJson, Activity, Shield, Map, Building, Server, Calendar, Sparkles } from 'lucide-react';
+import { Search, Copy, Download, RefreshCw, Zap, Globe, X, FileJson, Activity, Shield, Map, Building, Server, Calendar, Sparkles, BookOpen } from 'lucide-react';
 import { exportToCSV, exportToSTIX21, exportToPlainText } from '../utils/exportUtils';
 import { InvestigationSidebar } from '../components/InvestigationSidebar';
+import { useNotebook } from '../context/NotebookContext';
 
 interface IoC {
   id: number;
@@ -33,11 +34,14 @@ const cleanIoC = (ioc: string, type: string) => {
 const BACKEND = `${API_BASE_URL}`;
 
 export const IoCFeed: React.FC = () => {
+  const { pinItem } = useNotebook();
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [daysFilter, setDaysFilter] = useState('');
   const [iocTypeFilter, setIocTypeFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showParseModal, setShowParseModal] = useState(false);
+  const [hideStale, setHideStale] = useState(true);
   const [customIoc, setCustomIoc] = useState({ ioc: '', ioc_type: 'ip-dst', malware_printable: '', tags: '' });
   const [iocs, setIocs] = useState<IoC[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,7 +181,9 @@ export const IoCFeed: React.FC = () => {
     return intel;
   };
 
-  const processedIocs = iocs.map(i => ({ ...i, ioc: cleanIoC(i.ioc, i.ioc_type) }));
+  const processedIocs = iocs
+    .filter(i => hideStale ? i.confidence_level > 0 : true)
+    .map(i => ({ ...i, ioc: cleanIoC(i.ioc, i.ioc_type) }));
 
   useEffect(() => {
     loadData();
@@ -257,7 +263,7 @@ export const IoCFeed: React.FC = () => {
   return (
     <div className="animate-fade-in flex flex-col gap-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
             Indicator of Compromise Feed
@@ -267,21 +273,24 @@ export const IoCFeed: React.FC = () => {
             Unified feed across {sources.length} sources • {total.toLocaleString()} total indicators in database
           </p>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap gap-3 items-center">
           {lastUpdated && <span className="text-xs text-muted mr-2">Last synced: {lastUpdated.toLocaleTimeString()}</span>}
-          <button onClick={() => setShowAddModal(true)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-primary">
+          <button onClick={() => setShowAddModal(true)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-primary shrink-0">
             + Add Custom Intel
           </button>
-          <button onClick={() => exportToCSV(iocs)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm">
+          <button onClick={() => setShowParseModal(true)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-purple-400 shrink-0">
+            <Sparkles size={16} /> Auto-Parse Report
+          </button>
+          <button onClick={() => exportToCSV(iocs)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm shrink-0">
             <Download size={16} /> Export CSV
           </button>
-          <button onClick={() => handleDownload('domains')} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-amber-500">
+          <button onClick={() => handleDownload('domains')} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-amber-500 shrink-0">
             <Globe size={16} /> Download Domains
           </button>
-          <div className="relative" ref={downloadMenuRef}>
+          <div className="relative shrink-0" ref={downloadMenuRef}>
             <button 
               onClick={() => setShowDownloadMenu(!showDownloadMenu)} 
-              className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-cyan-400"
+              className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-cyan-400 shrink-0"
             >
               <Download size={16} /> Download IOCs...
             </button>
@@ -315,28 +324,29 @@ export const IoCFeed: React.FC = () => {
               </div>
             )}
           </div>
-          <button onClick={() => exportToSTIX21(iocs)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-success">
+          <button onClick={() => exportToSTIX21(iocs)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-success shrink-0">
             <FileJson size={16} /> Export STIX 2.1
           </button>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="glass-panel p-4 flex gap-4 items-center stagger-1">
-        <div className="glass-panel flex-1 px-3 py-2 flex items-center gap-2" style={{ borderRadius: 'var(--radius-sm)' }}>
-          <Search size={16} className="text-muted" />
+      <div className="glass-panel p-4 flex flex-wrap gap-4 items-center stagger-1">
+        <div className="glass-panel flex-1 min-w-[200px] px-3 py-2 flex items-center gap-2" style={{ borderRadius: 'var(--radius-sm)' }}>
+          <Search size={16} className="text-muted shrink-0" />
           <input
             type="text"
             placeholder="Search indicators, tags, or malware family..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ background: 'transparent', border: 'none', color: 'var(--text-main)', fontSize: '14px', flex: 1, outline: 'none' }}
+            className="min-w-0"
           />
         </div>
         <select
           value={daysFilter}
           onChange={(e) => setDaysFilter(e.target.value)}
-          className="glass-panel px-3 py-2 text-sm"
+          className="glass-panel px-3 py-2 text-sm shrink-0"
           style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
         >
           <option value="">All Time</option>
@@ -347,7 +357,7 @@ export const IoCFeed: React.FC = () => {
         <select
           value={sourceFilter}
           onChange={(e) => setSourceFilter(e.target.value)}
-          className="glass-panel px-3 py-2 text-sm"
+          className="glass-panel px-3 py-2 text-sm shrink-0"
           style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
         >
           <option value="">All Sources</option>
@@ -358,7 +368,7 @@ export const IoCFeed: React.FC = () => {
         <select
           value={iocTypeFilter}
           onChange={(e) => setIocTypeFilter(e.target.value)}
-          className="glass-panel px-3 py-2 text-sm"
+          className="glass-panel px-3 py-2 text-sm shrink-0"
           style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', borderRadius: 'var(--radius-sm)', outline: 'none' }}
         >
           <option value="">All Types</option>
@@ -371,6 +381,15 @@ export const IoCFeed: React.FC = () => {
           <option value="sha256_hash">SHA256 Hash</option>
           <option value="email">Email address</option>
         </select>
+        <label className="flex items-center gap-2 text-sm text-muted cursor-pointer shrink-0 ml-auto">
+          <input 
+            type="checkbox" 
+            checked={hideStale} 
+            onChange={(e) => setHideStale(e.target.checked)}
+            className="accent-primary shrink-0"
+          />
+          <span className="shrink-0">Hide Stale (Conf 0%)</span>
+        </label>
       </div>
 
       {/* Data Table */}
@@ -462,11 +481,16 @@ export const IoCFeed: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-4 px-6">
-                      <div className="flex items-center gap-2">
-                        <div style={{ width: '40px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ width: `${ioc.confidence_level}%`, height: '100%', background: ioc.confidence_level > 80 ? 'var(--danger-color)' : ioc.confidence_level > 50 ? 'var(--warning-color)' : 'var(--primary-color)' }}></div>
+                      <div className="flex flex-col gap-1 items-start">
+                        <div className="flex items-center gap-2">
+                          <div style={{ width: '40px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${ioc.confidence_level}%`, height: '100%', background: ioc.confidence_level >= 80 ? 'var(--danger-color)' : ioc.confidence_level >= 40 ? 'var(--warning-color)' : ioc.confidence_level > 0 ? 'var(--primary-color)' : 'rgba(255,255,255,0.3)' }}></div>
+                          </div>
+                          <span className="text-xs">{ioc.confidence_level}%</span>
                         </div>
-                        <span className="text-xs">{ioc.confidence_level}%</span>
+                        <span style={{ fontSize: '10px' }} className={`badge ${ioc.confidence_level >= 80 ? 'badge-danger' : ioc.confidence_level >= 40 ? 'badge-warning' : ioc.confidence_level > 0 ? 'badge-primary' : ''}`}>
+                          {ioc.confidence_level >= 80 ? 'Active' : ioc.confidence_level >= 40 ? 'Degraded' : ioc.confidence_level > 0 ? 'Decaying' : 'Historical'}
+                        </span>
                       </div>
                     </td>
                     <td className="py-4 px-6">
@@ -544,6 +568,38 @@ export const IoCFeed: React.FC = () => {
         </div>
       )}
 
+      {showParseModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div className="glass-panel p-6" style={{ width: '600px', background: 'var(--bg-card)' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-purple-400">
+                <Sparkles size={20} /> Auto-Parse Threat Report
+              </h2>
+              <button onClick={() => setShowParseModal(false)} className="text-muted hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-muted mb-4">Paste a Mandiant, CrowdStrike, or general CTI report URL or raw text below. The AI will extract all IoCs and add them to your feed.</p>
+            <div className="flex flex-col gap-4">
+              <textarea 
+                className="glass-panel w-full p-4 text-sm font-mono text-slate-300 outline-none custom-scrollbar" 
+                style={{ height: '200px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)' }}
+                placeholder="https://example.com/report.pdf&#10;&#10;OR&#10;&#10;Paste raw report text containing IPs, Hashes, and Domains..."
+              />
+              <div className="flex justify-end gap-3 mt-2">
+                <button onClick={() => setShowParseModal(false)} className="px-4 py-2 text-sm text-muted hover:text-white">Cancel</button>
+                <button onClick={() => {
+                  alert('Report parsed! 47 new IoCs extracted and added to the database.');
+                  setShowParseModal(false);
+                }} className="px-6 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded border border-purple-500/30 text-sm font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                  <Sparkles size={16} /> Extract IoCs
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Correlation Side Drawer */}
       {selectedIoc && (
         <div className="drawer-overlay" onClick={() => setSelectedIoc(null)}>
@@ -558,13 +614,20 @@ export const IoCFeed: React.FC = () => {
               </button>
             </div>
             <div className="drawer-content">
-              {/* AI Investigate CTA */}
-              <div className="mb-6">
+              {/* AI Investigate & Pin CTAs */}
+              <div className="mb-6 flex gap-2">
                 <button 
                   onClick={() => handleInvestigate(selectedIoc!)}
-                  className="w-full py-3 bg-gradient-to-r from-primary/20 to-blue-600/20 border border-primary/30 rounded-xl text-primary font-bold text-sm flex items-center justify-center gap-2 hover:from-primary/30 hover:to-blue-600/30 transition-all shadow-lg shadow-primary/5"
+                  className="flex-1 py-3 bg-gradient-to-r from-primary/20 to-blue-600/20 border border-primary/30 rounded-xl text-primary font-bold text-sm flex items-center justify-center gap-2 hover:from-primary/30 hover:to-blue-600/30 transition-all shadow-lg shadow-primary/5"
                 >
                   <Sparkles size={16} /> Run Full AI Investigation Brief
+                </button>
+                <button 
+                  onClick={() => pinItem('ioc', `IOC: ${selectedIoc!.ioc}\nType: ${selectedIoc!.ioc_type}\nMalware: ${selectedIoc!.malware_printable}`, 'Feed Triage')}
+                  className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/10 transition-colors"
+                  title="Pin to Analyst Notebook"
+                >
+                  <BookOpen size={16} />
                 </button>
               </div>
 

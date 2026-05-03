@@ -19,9 +19,10 @@ export async function pollMastodon() {
         if (!Array.isArray(posts)) continue;
 
         const insertSql = `
-          INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
+          INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
           VALUES (?, ?, 'social_intel', 'Social Media Indicator', ?, ?, 60, 'Mastodon', ?, ?)
-        `;
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
+    `;
 
         const batch = [];
     // begin batch

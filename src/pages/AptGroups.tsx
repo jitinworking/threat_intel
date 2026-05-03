@@ -187,21 +187,21 @@ level: high`;
           <div key={apt.id} onClick={() => setSelectedApt(apt)} className={`glass-panel p-6 flex flex-col stagger-${(index % 3) + 1} hover:-translate-y-1 transition-transform hover:border-blue-500/30`} style={{ cursor: 'pointer' }}>
             
             {/* Card Header */}
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-xl font-bold flex items-center gap-2 tracking-tight">
-                  <Shield size={20} className={apt.threatLevel === 'Critical' ? 'text-danger' : apt.threatLevel === 'High' ? 'text-warning' : 'text-primary'} />
-                  {apt.name}
+            <div className="flex flex-col xl:flex-row justify-between items-start gap-3 mb-4">
+              <div className="flex flex-col gap-1 flex-1 min-w-0">
+                <h3 className="text-xl font-bold flex items-center gap-2 tracking-tight truncate">
+                  <Shield size={20} className={apt.threatLevel === 'Critical' ? 'text-danger shrink-0' : apt.threatLevel === 'High' ? 'text-warning shrink-0' : 'text-primary shrink-0'} />
+                  <span className="truncate">{apt.name}</span>
                 </h3>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted">aka {apt.aliases.slice(0, 2).join(', ')}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted truncate">aka {apt.aliases.slice(0, 2).join(', ')}</p>
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="flex flex-wrap gap-2 items-center shrink-0">
                 {localCorrelations[apt.id] > 0 && (
-                  <span className="badge badge-danger animate-pulse flex items-center gap-1 group relative">
+                  <span 
+                    className="badge badge-danger animate-pulse flex items-center gap-1 cursor-help"
+                    title={`Local IoCs matching ${apt.name} TTPs`}
+                  >
                     <Activity size={10} /> {localCorrelations[apt.id]} Matches
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-danger/30 text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                      Local IoCs matching {apt.name} TTPs
-                    </span>
                   </span>
                 )}
                 <span className={`badge ${apt.threatLevel === 'Critical' ? 'badge-danger' : apt.threatLevel === 'High' ? 'badge-warning' : 'badge-primary'} px-2 py-0.5 text-[10px]`}>
@@ -263,7 +263,7 @@ level: high`;
       {/* Side Drawer for Full Profile */}
       {selectedApt && (
         <div className="drawer-overlay" onClick={() => setSelectedApt(null)}>
-          <div className="drawer" onClick={e => e.stopPropagation()} style={{ width: '500px' }}>
+          <div className="drawer" onClick={e => e.stopPropagation()} style={{ width: '700px', maxWidth: '100vw' }}>
             <div className="drawer-header bg-gradient-to-r from-slate-900/50 to-slate-800/50 border-b border-white/10">
               <div>
                 <div className="flex items-center gap-3">
@@ -354,13 +354,13 @@ level: high`;
                 </h4>
                 <div className="flex flex-row overflow-x-auto pb-6 pt-3 items-stretch custom-scrollbar">
                   {selectedApt.playbook.map((phase: any, i: number) => (
-                    <div key={i} className="flex items-center min-w-[280px] shrink-0">
-                      <div className="glass-panel p-4 relative hover:border-blue-500/50 transition-all flex-1 h-full shadow-lg border-white/10 group top-0 hover:-top-1">
-                        <div className="absolute -top-4 -left-2 bg-slate-900 border border-blue-500/50 shadow shadow-blue-500/20 rounded pl-2.5 pr-2.5 py-1 text-blue-400 group-hover:bg-blue-500/20 transition-colors flex items-center justify-center">
+                    <div key={i} className="flex items-center w-[280px] shrink-0">
+                      <div className="glass-panel p-4 relative hover:border-blue-500/50 transition-all w-full h-full shadow-lg border-white/10 group top-0 hover:-top-1">
+                        <div className="absolute -top-4 -left-2 bg-slate-900 border border-blue-500/50 shadow shadow-blue-500/20 rounded px-2.5 py-1 text-blue-400 group-hover:bg-blue-500/20 transition-colors inline-flex items-center justify-center">
                           {React.cloneElement(phase.icon, { size: 14 })}
                         </div>
                         <h5 className="font-bold text-white text-sm mb-2 mt-3">{phase.phase}</h5>
-                        <p className="text-[11px] text-slate-400 leading-relaxed break-words whitespace-pre-wrap">{phase.description}</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed break-words whitespace-normal">{phase.description}</p>
                       </div>
                       {i < selectedApt.playbook.length - 1 && (
                         <div className="flex items-center justify-center shrink-0 w-8 mx-1">

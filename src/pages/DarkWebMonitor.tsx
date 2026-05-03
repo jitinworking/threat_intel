@@ -175,29 +175,29 @@ export const DarkWebMonitor: React.FC = () => {
               
               {/* Score / Summary Card */}
               {results.length > 0 ? (
-                  <div className="glass-panel p-6 flex items-center justify-between bg-gradient-to-r from-danger/10 to-slate-900/40 border-l-4 border-l-danger">
-                      <div className="flex items-center gap-4">
-                          <div className="bg-danger/20 p-4 rounded-full text-danger border border-danger/30">
+                  <div className="glass-panel p-6 flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-danger/10 to-slate-900/40 border-l-4 border-l-danger">
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="bg-danger/20 p-4 rounded-full text-danger border border-danger/30 shrink-0">
                               <ShieldAlert size={32} />
                           </div>
-                          <div>
-                              <h3 className="text-xl font-bold text-white mb-1">Identity Breach Detected</h3>
-                              <p className="text-sm text-slate-400">Found <strong className="text-danger">{results ? results.length : 0}</strong> compromised credentials across various dark web sources.</p>
+                          <div className="min-w-0">
+                              <h3 className="text-xl font-bold text-white mb-1 truncate">Identity Breach Detected</h3>
+                              <p className="text-sm text-slate-400 truncate">Found <strong className="text-danger">{results ? results.length : 0}</strong> compromised credentials across various dark web sources.</p>
                           </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-left sm:text-right shrink-0">
                           <p className="text-xs font-bold text-muted uppercase tracking-widest mb-1">Risk Factor Score</p>
                           <div className="text-4xl font-extrabold text-danger drop-shadow-md">{results ? calculateRiskScore(results) : 0}<span className="text-lg text-slate-500 font-normal">/100</span></div>
                       </div>
                   </div>
               ) : (
                  <div className="glass-panel p-6 flex items-center gap-4 bg-gradient-to-r from-success/10 to-slate-900/40 border-l-4 border-l-success">
-                      <div className="bg-success/20 p-4 rounded-full text-success border border-success/30">
+                      <div className="bg-success/20 p-4 rounded-full text-success border border-success/30 shrink-0">
                           <ShieldCheck size={32} />
                       </div>
-                      <div>
-                          <h3 className="text-xl font-bold text-white mb-1">No Compromised Identities Found</h3>
-                          <p className="text-sm text-slate-400">Your domain <strong className="text-white">{domain}</strong> appears secure across monitored dark web channels.</p>
+                      <div className="min-w-0">
+                          <h3 className="text-xl font-bold text-white mb-1 truncate">No Compromised Identities Found</h3>
+                          <p className="text-sm text-slate-400 truncate">Your domain <strong className="text-white">{domain}</strong> appears secure across monitored dark web channels.</p>
                       </div>
                   </div>
               )}

@@ -18,8 +18,9 @@ export async function pollURLhaus() {
     }
 
     const insertSql = `
-      INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
+      INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
       VALUES (?, 'url', 'payload_delivery', 'Malicious URL', ?, ?, 85, 'URLhaus', ?, ?)
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
     `;
 
     let count = 0;

@@ -73,6 +73,24 @@ export async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_iocs_source ON iocs(source);
     CREATE INDEX IF NOT EXISTS idx_iocs_ioc_type ON iocs(ioc_type);
     CREATE INDEX IF NOT EXISTS idx_iocs_malware ON iocs(malware);
+
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT DEFAULT '',
+      threat_actor TEXT DEFAULT '',
+      first_seen TEXT DEFAULT (datetime('now')),
+      last_updated TEXT DEFAULT (datetime('now')),
+      status TEXT DEFAULT 'Active'
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_iocs (
+      campaign_id INTEGER,
+      ioc_id INTEGER,
+      FOREIGN KEY (campaign_id) REFERENCES campaigns(id),
+      FOREIGN KEY (ioc_id) REFERENCES iocs(id),
+      PRIMARY KEY (campaign_id, ioc_id)
+    );
   `);
 
   // Seed default feeds
@@ -106,6 +124,28 @@ export async function initDB() {
   return db;
 }
 
+import { isSuppressed } from './suppression.js';
+
 export function getDB() {
-  return db;
+  return {
+    ...db,
+    batch: async (statements, mode) => {
+      const filtered = statements.filter(stmt => {
+        if (stmt.sql && stmt.sql.includes('INSERT INTO iocs') && stmt.args && stmt.args.length > 0) {
+          const ioc = stmt.args[0];
+          if (isSuppressed(ioc)) return false;
+        }
+        return true;
+      });
+      if (filtered.length === 0) return [];
+      return db.batch(filtered, mode);
+    },
+    execute: async (stmt) => {
+      if (stmt.sql && stmt.sql.includes('INSERT INTO iocs') && stmt.args && stmt.args.length > 0) {
+        const ioc = stmt.args[0];
+        if (isSuppressed(ioc)) return { rows: [], rowsAffected: 0 };
+      }
+      return db.execute(stmt);
+    }
+  };
 }

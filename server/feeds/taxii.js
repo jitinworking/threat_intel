@@ -4,8 +4,12 @@ import { getDB } from '../db.js';
 // TAXII 2.1 client for AlienVault OTX (free with API key)
 export async function pollTaxii() {
   const db = getDB();
-  const keyRow = db.prepare("SELECT value FROM settings WHERE key = 'otx_api_key'").get();
-  const apiKey = keyRow?.value;
+  let apiKey = null;
+
+  try {
+    const res = await db.execute("SELECT value FROM settings WHERE key = 'otx_api_key'");
+    apiKey = res.rows.length > 0 ? res.rows[0].value : null;
+  } catch(e) {}
 
   if (!apiKey) {
     console.log('[TAXII/OTX] No API key configured. Skipping.');
@@ -29,8 +33,9 @@ export async function pollTaxii() {
     if (!json.results) return 0;
 
     const insertSql = `
-      INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
+      INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
       VALUES (?, ?, 'stix_indicator', 'STIX/TAXII Indicator', ?, ?, 85, 'AlienVault OTX', ?, ?)
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
     `;
 
     const batch = [];

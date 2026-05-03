@@ -18,8 +18,9 @@ export async function pollSSLBL() {
     const lines = text.split('\n').filter(l => l && !l.startsWith('#'));
 
     const insertSql = `
-      INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
+      INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
       VALUES (?, 'ssl_cert_sha1', 'malicious_ssl', ?, ?, ?, 90, 'SSLBL', '["abuse.ch", "sslbl"]', ?)
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
     `;
 
     let count = 0;

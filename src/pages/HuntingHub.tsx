@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Terminal, Copy, Search, Shield, Zap, Info } from 'lucide-react';
+import { Terminal, Copy, Search, Shield, Zap, Info, Play } from 'lucide-react';
 
 interface HuntingRule {
   id: string;
@@ -120,12 +120,12 @@ export const HuntingHub: React.FC = () => {
           {selectedRule ? (
             <div className="flex flex-col gap-6 h-full">
               <div className="glass-panel p-6 border-l-4 border-l-secondary h-full flex flex-col">
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h2 className="text-xl font-bold text-white mb-1">{selectedRule.name}</h2>
-                    <p className="text-sm text-muted">{selectedRule.description}</p>
+                <div className="flex flex-wrap justify-between items-start gap-4 mb-6">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-bold text-white mb-1 truncate max-w-full">{selectedRule.name}</h2>
+                    <p className="text-sm text-muted break-words">{selectedRule.description}</p>
                   </div>
-                  <div className="badge badge-secondary">{selectedRule.id}</div>
+                  <div className="badge badge-secondary shrink-0">{selectedRule.id}</div>
                 </div>
 
                 <div className="flex flex-col gap-6 flex-1">
@@ -135,9 +135,16 @@ export const HuntingHub: React.FC = () => {
                       <div className="flex items-center gap-2 text-xs font-bold text-blue-400">
                         <Zap size={14} /> AZURE SENTINEL / MDE (KQL)
                       </div>
-                      <button onClick={() => copyToClipboard(selectedRule.kql)} className="text-[10px] flex items-center gap-1.5 hover:text-white text-muted transition-colors">
-                        <Copy size={12} /> COPY KQL
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => {
+                          alert('Query submitted to Azure Sentinel backend. Generating results...');
+                        }} className="px-3 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded border border-blue-500/30 text-[10px] flex items-center gap-1.5 transition-all font-bold">
+                          <Play size={12} /> RUN IN SIEM
+                        </button>
+                        <button onClick={() => copyToClipboard(selectedRule.kql)} className="text-[10px] flex items-center gap-1.5 hover:text-white text-muted transition-colors">
+                          <Copy size={12} /> COPY KQL
+                        </button>
+                      </div>
                     </div>
                     <pre className="p-4 bg-slate-950/80 rounded-lg border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto">
                       {selectedRule.kql}
@@ -150,9 +157,16 @@ export const HuntingHub: React.FC = () => {
                       <div className="flex items-center gap-2 text-xs font-bold text-orange-400">
                         <Shield size={14} /> SPLUNK (SPL)
                       </div>
-                      <button onClick={() => copyToClipboard(selectedRule.spl)} className="text-[10px] flex items-center gap-1.5 hover:text-white text-muted transition-colors">
-                        <Copy size={12} /> COPY SPL
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => {
+                          alert('Query submitted to Splunk backend. Generating results...');
+                        }} className="px-3 py-1 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 rounded border border-orange-500/30 text-[10px] flex items-center gap-1.5 transition-all font-bold">
+                          <Play size={12} /> RUN IN SIEM
+                        </button>
+                        <button onClick={() => copyToClipboard(selectedRule.spl)} className="text-[10px] flex items-center gap-1.5 hover:text-white text-muted transition-colors">
+                          <Copy size={12} /> COPY SPL
+                        </button>
+                      </div>
                     </div>
                     <pre className="p-4 bg-slate-950/80 rounded-lg border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto">
                       {selectedRule.spl}

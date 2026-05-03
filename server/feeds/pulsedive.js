@@ -16,8 +16,9 @@ export async function pollPulseDive() {
     items.shift();
 
     const insertSql = `
-      INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, malware_printable, confidence_level, source, first_seen)
+      INSERT INTO iocs (ioc, ioc_type, threat_type, malware_printable, confidence_level, source, first_seen)
       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
     `;
 
     for (const item of items) {

@@ -12,8 +12,9 @@ export async function pollPhishTank() {
     const urls = text.split('\n').slice(0, 500); // Limit to top 500 recently verified
 
     const insertSql = `
-      INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, malware_printable, confidence_level, source, first_seen)
+      INSERT INTO iocs (ioc, ioc_type, threat_type, malware_printable, confidence_level, source, first_seen)
       VALUES (?, 'url', 'phishing', 'Verified Phish', 90, 'PhishTank', datetime('now'))
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
     `;
 
     for (const url of urls) {

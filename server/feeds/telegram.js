@@ -4,10 +4,16 @@ import { getDB } from '../db.js';
 // Telegram Bot API — requires bot token and channel IDs configured in settings
 export async function pollTelegram() {
   const db = getDB();
-  const tokenRow = db.prepare("SELECT value FROM settings WHERE key = 'telegram_bot_token'").get();
-  const channelsRow = db.prepare("SELECT value FROM settings WHERE key = 'telegram_channels'").get();
+  let token = null;
+  let channelsRow = null;
+  
+  try {
+    const res1 = await db.execute("SELECT value FROM settings WHERE key = 'telegram_bot_token'");
+    token = res1.rows.length > 0 ? res1.rows[0].value : null;
+    const res2 = await db.execute("SELECT value FROM settings WHERE key = 'telegram_channels'");
+    channelsRow = res2.rows.length > 0 ? res2.rows[0] : null;
+  } catch(e) {}
 
-  const token = tokenRow?.value;
   if (!token) {
     console.log('[Telegram] No bot token configured. Skipping.');
     return 0;
@@ -30,9 +36,10 @@ export async function pollTelegram() {
       if (!json.ok || !json.result) continue;
 
       const insertSql = `
-        INSERT OR IGNORE INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
+        INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
         VALUES (?, ?, 'social_intel', 'Telegram Intel', ?, ?, 60, 'Telegram', ?, ?)
-      `;
+      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
+    `;
 
       const batch = [];
     // begin batch

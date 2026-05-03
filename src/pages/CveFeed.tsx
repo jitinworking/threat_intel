@@ -130,14 +130,14 @@ export const CveFeed: React.FC = () => {
 
               {/* Content */}
               <div className="flex-1">
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-lg font-bold text-white border-b border-primary/30 pb-0.5">{cve.id}</h3>
-                    <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-muted uppercase tracking-tighter">
+                    <h3 className="text-lg font-bold text-white border-b border-primary/30 pb-0.5 truncate max-w-full">{cve.id}</h3>
+                    <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-muted uppercase tracking-tighter shrink-0">
                        NVD Analyzed
                     </span>
                   </div>
-                  <span className="text-xs text-muted flex items-center gap-1.5">
+                  <span className="text-xs text-muted flex items-center gap-1.5 shrink-0">
                     <Clock size={12} /> {cve.publishedDate}
                   </span>
                 </div>

@@ -20,10 +20,10 @@ export async function pollNews() {
       const items = text.split('<item>');
       items.shift(); // Remove the prologue before the first <item>
 
-      const upsert = db.prepare(`
+      const insertSql = `
         INSERT OR IGNORE INTO news (title, source, summary, url, category, published_at)
         VALUES (?, ?, ?, ?, ?, ?)
-      `);
+      `;
 
       for (const item of items) {
         const title = (item.match(/<title>(.*?)<\/title>/s)?.[1] || '').replace(/<!\[CDATA\[(.*?)\]\]>/s, '$1').trim();
@@ -33,8 +33,13 @@ export async function pollNews() {
         const pubDate = (item.match(/<pubDate>(.*?)<\/pubDate>/s)?.[1] || '').trim();
         
         if (title && link) {
-          const result = upsert.run(title, feed.name, description, link, feed.category, pubDate);
-          totalNew += result.changes;
+          try {
+            const result = await db.execute({
+              sql: insertSql,
+              args: [title, feed.name, description, link, feed.category, pubDate]
+            });
+            totalNew += result.rowsAffected;
+          } catch(e) {}
         }
       }
     } catch (err) {
