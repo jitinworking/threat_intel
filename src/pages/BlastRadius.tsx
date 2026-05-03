@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Target, ShieldAlert, Crosshair, Network, ArrowRight, Zap, Skull, Shield, Server, HardDrive } from 'lucide-react';
+import { Target, Network, ArrowRight, Zap, Skull, Server, HardDrive } from 'lucide-react';
 
 interface NetworkNode {
   id: string;

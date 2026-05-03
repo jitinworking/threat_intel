@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Globe as GlobeIcon, Shield, MapPin, Activity } from 'lucide-react';
 import Globe from 'react-globe.gl';
 import { WS_BASE_URL } from '../config';
@@ -33,7 +33,7 @@ const hasWebGL = () => {
 export const GeoMap: React.FC = () => {
   const [globeWidth, setGlobeWidth] = useState(800);
   const containerRef = useRef<HTMLDivElement>(null);
-  const globeRef = useRef<any>();
+  const globeRef = useRef<any>(null);
   const [arcs, setArcs] = useState<any[]>([]);
 
   useEffect(() => {

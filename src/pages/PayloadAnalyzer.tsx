@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Terminal, Code, Cpu, RefreshCw, ChevronRight, FileCode, Search, ShieldAlert } from 'lucide-react';
+import { Terminal, Code, Cpu, RefreshCw, FileCode, Search, ShieldAlert } from 'lucide-react';
 
 export const PayloadAnalyzer: React.FC = () => {
   const [payload, setPayload] = useState('');

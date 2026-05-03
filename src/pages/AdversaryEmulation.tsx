@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Shield, Terminal, Skull, AlertTriangle, Zap, CheckCircle2, ChevronRight, RefreshCw } from 'lucide-react';
+import { Play, Shield, Skull, Zap, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface EmulationTask {
   id: string;

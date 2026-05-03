@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Newspaper, ShieldAlert, Globe, AlertTriangle, Building, Building2, Server, Key, Filter, Search, Skull } from 'lucide-react';
+import { Newspaper, Globe, Building2, Server, Filter, Search, Skull } from 'lucide-react';
 
 interface LeakItem {
   id: string;
