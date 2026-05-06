@@ -38,6 +38,11 @@ export function broadcast(type, data) {
 
 // =================== API ROUTES ===================
 
+// GET /health — server health check for UptimeRobot
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 // GET /api/iocs — paginated list
 app.get('/api/iocs', async (req, res) => {
   const db = getDB();
