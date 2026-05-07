@@ -469,6 +469,45 @@ app.post('/api/campaigns', async (req, res) => {
   }
 });
 
+// GET /api/apts — list APT groups
+app.get('/api/apts', async (req, res) => {
+  const db = getDB();
+  try {
+    const aptsRes = await db.execute('SELECT * FROM apt_groups ORDER BY last_active DESC');
+    const parsed = aptsRes.rows.map(r => ({
+      ...r,
+      aliases: JSON.parse(r.aliases || '[]'),
+      targets: JSON.parse(r.targets || '[]'),
+      motivations: JSON.parse(r.motivations || '[]')
+    }));
+    res.json(parsed);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/cves — list CVEs
+app.get('/api/cves', async (req, res) => {
+  const db = getDB();
+  try {
+    const cvesRes = await db.execute('SELECT * FROM cves ORDER BY published_at DESC LIMIT 100');
+    res.json(cvesRes.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/ransomware — list ransomware leaks
+app.get('/api/ransomware', async (req, res) => {
+  const db = getDB();
+  try {
+    const leaksRes = await db.execute('SELECT * FROM ransomware_leaks ORDER BY published_at DESC LIMIT 100');
+    res.json(leaksRes.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // =================== START ===================
 const PORT = process.env.PORT || 3001;
 

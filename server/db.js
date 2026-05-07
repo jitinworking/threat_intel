@@ -1,6 +1,7 @@
 import { createClient } from '@libsql/client';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'threat_intel.db')}`;
@@ -91,6 +92,41 @@ export async function initDB() {
       FOREIGN KEY (ioc_id) REFERENCES iocs(id),
       PRIMARY KEY (campaign_id, ioc_id)
     );
+
+    DROP TABLE IF EXISTS apt_groups;
+    CREATE TABLE IF NOT EXISTS apt_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      aliases TEXT DEFAULT '[]',
+      description TEXT DEFAULT '',
+      targets TEXT DEFAULT '[]',
+      motivations TEXT DEFAULT '[]',
+      malware TEXT DEFAULT '[]',
+      threatLevel TEXT DEFAULT 'Medium',
+      playbook TEXT DEFAULT '[]',
+      associatedCVEs TEXT DEFAULT '[]',
+      fingerprint TEXT DEFAULT '{}',
+      last_active TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS cves (
+      id TEXT PRIMARY KEY,
+      score REAL DEFAULT 0.0,
+      severity TEXT DEFAULT 'medium',
+      description TEXT DEFAULT '',
+      vendor TEXT DEFAULT '',
+      product TEXT DEFAULT '',
+      published_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS ransomware_leaks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_name TEXT NOT NULL,
+      victim_name TEXT NOT NULL,
+      victim_url TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      published_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Seed default feeds
@@ -121,6 +157,54 @@ export async function initDB() {
   }
 
   console.log('[DB] LibSQL initialized at', process.env.TURSO_DATABASE_URL ? 'Turso Cloud' : DB_PATH);
+  // Seed APTs
+  const aptsCount = await db.execute('SELECT COUNT(*) as count FROM apt_groups');
+  if (aptsCount.rows[0].count === 0) {
+    const aptsRaw = fs.readFileSync(path.join(process.cwd(), 'server/data/apts.json'), 'utf-8');
+    const apts = JSON.parse(aptsRaw);
+    for (const apt of apts) {
+      await db.execute({ 
+        sql: 'INSERT INTO apt_groups (name, aliases, description, targets, motivations, malware, threatLevel, playbook, associatedCVEs, fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+        args: [
+          apt.name, 
+          JSON.stringify(apt.aliases || []), 
+          apt.description, 
+          JSON.stringify(apt.targets || []), 
+          JSON.stringify(apt.motivations || []),
+          JSON.stringify(apt.malware || []),
+          apt.threatLevel || 'Medium',
+          JSON.stringify(apt.playbook || []),
+          JSON.stringify(apt.associatedCVEs || []),
+          JSON.stringify(apt.fingerprint || {})
+        ] 
+      });
+    }
+  }
+
+  // Seed CVEs
+  const cvesCount = await db.execute('SELECT COUNT(*) as count FROM cves');
+  if (cvesCount.rows[0].count === 0) {
+    const cves = [
+      { id: 'CVE-2024-21413', score: 9.8, sev: 'critical', desc: 'Outlook Remote Code Execution', vendor: 'Microsoft', product: 'Outlook' },
+      { id: 'CVE-2023-7028', score: 10.0, sev: 'critical', desc: 'GitLab Account Takeover', vendor: 'GitLab', product: 'GitLab' }
+    ];
+    for (const cve of cves) {
+      await db.execute({ sql: 'INSERT INTO cves (id, score, severity, description, vendor, product) VALUES (?, ?, ?, ?, ?, ?)', args: [cve.id, cve.score, cve.sev, cve.desc, cve.vendor, cve.product] });
+    }
+  }
+
+  // Seed Ransomware
+  const ransomwareCount = await db.execute('SELECT COUNT(*) as count FROM ransomware_leaks');
+  if (ransomwareCount.rows[0].count === 0) {
+    const leaks = [
+      { group: 'LockBit 3.0', victim: 'Boeing', url: 'boeing.com', desc: 'Aerospace giant compromised.' },
+      { group: 'ALPHV (BlackCat)', victim: 'MGM Resorts', url: 'mgmresorts.com', desc: 'Massive casino outage.' }
+    ];
+    for (const leak of leaks) {
+      await db.execute({ sql: 'INSERT INTO ransomware_leaks (group_name, victim_name, victim_url, description) VALUES (?, ?, ?, ?)', args: [leak.group, leak.victim, leak.url, leak.desc] });
+    }
+  }
+
   return db;
 }
 

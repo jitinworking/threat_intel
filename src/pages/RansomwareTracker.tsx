@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { API_BASE_URL } from '../config';
+import React, { useState, useEffect } from 'react';
 import { Newspaper, Globe, Building2, Server, Filter, Search, Skull } from 'lucide-react';
 
 interface LeakItem {
@@ -14,18 +15,36 @@ interface LeakItem {
   countdown?: string;
 }
 
-const mockLeaks: LeakItem[] = [
-  { id: '1', actor: 'LockBit 3.0', victim: 'Global Logistics Corp', industry: 'Transportation', revenue: '$1.2B', dataSize: '1.5 TB', publishedAt: '2 hours ago', status: 'Published', description: 'Complete exfiltration of financial records, employee passports, and maritime tracking databases.' },
-  { id: '2', actor: 'ALPHV (BlackCat)', victim: 'Apex Healthcare Partners', industry: 'Healthcare', revenue: '$450M', dataSize: '850 GB', publishedAt: '5 hours ago', status: 'Negotiating', description: 'Patient records, internal communications, and proprietary research data.', countdown: '04:12:33' },
-  { id: '3', actor: 'Play', victim: 'City of Springfield', industry: 'Government', revenue: 'N/A', dataSize: '300 GB', publishedAt: '1 day ago', status: 'Published', description: 'Municipal records, police dispatch logs, and citizen tax documents.' },
-  { id: '4', actor: 'RansomHub', victim: 'TechFlow Solutions', industry: 'IT Services', revenue: '$85M', dataSize: '2.1 TB', publishedAt: '2 days ago', status: 'Published', description: 'Source code repositories, client infrastructure diagrams, and admin credentials.' },
-  { id: '5', actor: '8Base', victim: 'Horizon Legal Group', industry: 'Legal', revenue: '$120M', dataSize: '500 GB', publishedAt: '3 days ago', status: 'Countdown', description: 'Confidential client case files and financial ledgers.', countdown: '48:00:00' }
-];
-
 export const RansomwareTracker: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredLeaks = mockLeaks.filter(l => 
+  const [leaks, setLeaks] = useState<LeakItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/ransomware`)
+      .then(r => r.json())
+      .then(data => {
+        const mapped = data.map((l: any) => ({
+          id: l.id.toString(),
+          actor: l.group_name,
+          victim: l.victim_name,
+          industry: 'Unknown', // Fallback for DB fields not yet added
+          revenue: 'N/A',
+          dataSize: 'Unknown',
+          publishedAt: l.published_at || 'Recently',
+          description: l.description,
+          status: 'Published'
+        }));
+        setLeaks(mapped);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch ransomware leaks', err);
+        setLoading(false);
+      });
+  }, []);
+
+  const filteredLeaks = leaks.filter(l => 
     l.victim.toLowerCase().includes(searchTerm.toLowerCase()) || 
     l.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
     l.industry.toLowerCase().includes(searchTerm.toLowerCase())

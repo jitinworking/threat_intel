@@ -1,20 +1,60 @@
 import { API_BASE_URL } from '../config';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Code, Search, Shield, ChevronRight, X, Target, Copy, Check, Terminal, Activity, Globe } from 'lucide-react';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 
-import { mockApts, type AptGroup } from '../data/mockApts';
+export interface PlaybookStep {
+  phase: string;
+  description: string;
+  icon?: any;
+}
+
+export interface AptGroup {
+  id: number;
+  name: string;
+  aliases: string[];
+  origin: string;
+  targets: string[];
+  malware: string[];
+  threatLevel: 'Critical' | 'High' | 'Medium' | 'Low';
+  description: string;
+  playbook: PlaybookStep[];
+  associatedCVEs: string[];
+  fingerprint: {
+    sophistication: number;
+    aggression: number;
+    persistence: number;
+    obfuscation: number;
+    infraRot: number;
+  };
+}
 
 export const AptGroups: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApt, setSelectedApt] = useState<AptGroup | null>(null);
   const [copiedRule, setCopiedRule] = useState<'sigma' | 'yara' | null>(null);
   const [localCorrelations, setLocalCorrelations] = useState<Record<string, number>>({});
+  const [apts, setApts] = useState<AptGroup[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/apts`)
+      .then(r => r.json())
+      .then(data => {
+        setApts(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch APTs', err);
+        setLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (apts.length === 0) return;
     const fetchCorrelations = async () => {
       const counts: Record<string, number> = {};
-      for (const apt of mockApts) {
+      for (const apt of apts) {
         try {
           // Search for any of the malware families in our local DB
           const searchPromises = apt.malware.slice(0, 2).map(mw => 
@@ -149,7 +189,7 @@ level: high`;
     setTimeout(() => setCopiedRule(null), 2000);
   };
 
-  const filteredApts = mockApts.filter(apt => 
+  const filteredApts = apts.filter(apt => 
     apt.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     apt.aliases.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) ||
     apt.targets.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) ||

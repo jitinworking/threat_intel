@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { API_BASE_URL } from '../config';
+import React, { useState, useEffect } from 'react';
 import { ShieldAlert, ExternalLink, Search, Clock, Tag, AlertCircle } from 'lucide-react';
 
 interface CVE {
@@ -11,59 +12,26 @@ interface CVE {
   status: string;
 }
 
-const mockCves: CVE[] = [
-  {
-    id: 'CVE-2024-21413',
-    description: 'Microsoft Outlook Remote Code Execution Vulnerability (MonikerLink). Allows attackers to bypass Office Protected View.',
-    severity: 'Critical',
-    score: 9.8,
-    publishedDate: '2024-02-13',
-    vendor: 'Microsoft',
-    status: 'Analyzed'
-  },
-  {
-    id: 'CVE-2024-21351',
-    description: 'Windows SmartScreen Security Feature Bypass Vulnerability. Actively exploited in the wild for malware delivery.',
-    severity: 'High',
-    score: 7.6,
-    publishedDate: '2024-02-13',
-    vendor: 'Microsoft',
-    status: 'Modified'
-  },
-  {
-    id: 'CVE-2023-4863',
-    description: 'Critical Heap Buffer Overflow in libwebp. Affects Chrome, Firefox, and many other software using the library.',
-    severity: 'Critical',
-    score: 8.8,
-    publishedDate: '2023-09-12',
-    vendor: 'Google / Multiple',
-    status: 'Analyzed'
-  },
-  {
-    id: 'CVE-2024-22245',
-    description: 'VMware ESXi and vCenter Server OpenSLP Heap Overflow Vulnerability. Could result in remote code execution.',
-    severity: 'High',
-    score: 7.2,
-    publishedDate: '2024-02-21',
-    vendor: 'VMware',
-    status: 'Awaiting Analysis'
-  },
-  {
-    id: 'CVE-2023-7028',
-    description: 'GitLab Account Takeover via Password Reset Vulnerability. Critical risk for CI/CD pipelines.',
-    severity: 'Critical',
-    score: 10.0,
-    publishedDate: '2024-01-11',
-    vendor: 'GitLab',
-    status: 'Analyzed'
-  }
-];
-
 export const CveFeed: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'All' | 'Critical' | 'High'>('All');
+  const [cves, setCves] = useState<CVE[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCves = mockCves.filter(cve => {
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/cves`)
+      .then(r => r.json())
+      .then(data => {
+        setCves(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to fetch CVEs', err);
+        setLoading(false);
+      });
+  }, []);
+
+  const filteredCves = cves.filter(cve => {
     const matchesSearch = cve.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
                          cve.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          cve.vendor.toLowerCase().includes(searchTerm.toLowerCase());
