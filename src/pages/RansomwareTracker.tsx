@@ -18,7 +18,7 @@ interface LeakItem {
 export const RansomwareTracker: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [leaks, setLeaks] = useState<LeakItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/ransomware`)

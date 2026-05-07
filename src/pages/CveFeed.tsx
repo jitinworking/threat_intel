@@ -16,7 +16,7 @@ export const CveFeed: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'All' | 'Critical' | 'High'>('All');
   const [cves, setCves] = useState<CVE[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/cves`)

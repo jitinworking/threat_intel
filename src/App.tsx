@@ -23,6 +23,7 @@ import { DarkWebMonitor } from './pages/DarkWebMonitor';
 import { Oracle } from './pages/Oracle';
 import { PayloadAnalyzer } from './pages/PayloadAnalyzer';
 import { Sandbox } from './pages/Sandbox';
+import { CampaignTimeline } from './pages/CampaignTimeline';
 
 interface Toast {
   id: string;
@@ -106,6 +107,7 @@ function App() {
       case 'analyzer': return <PayloadAnalyzer />;
       case 'news': return <NewsPortal />;
       case 'sandbox': return <Sandbox />;
+      case 'campaigns': return <CampaignTimeline />;
       case 'settings': return <Settings />;
       default: return <Dashboard />;
     }

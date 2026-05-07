@@ -13,9 +13,9 @@ export async function pollCisaKev() {
     }
 
     const insertSql = `
-      INSERT INTO iocs (ioc, ioc_type, threat_type, threat_type_desc, malware, malware_printable, confidence_level, source, tags, first_seen)
-      VALUES (?, 'cve', 'vulnerability', ?, ?, ?, 100, 'CISA KEV', ?, ?)
-      ON CONFLICT(ioc, source) DO UPDATE SET last_seen = datetime('now'), confidence_level = MIN(100, confidence_level + 10)
+      INSERT INTO cves (id, score, severity, description, vendor, product, published_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET description = excluded.description
     `;
 
     let count = 0;
@@ -24,18 +24,14 @@ export async function pollCisaKev() {
     // begin batch
       for (const vuln of recent) {
         try {
-          const tags = [vuln.vendorProject, vuln.product].filter(Boolean);
           try {
             batch.push({ sql: insertSql, args: [
               vuln.cveID,
-              'cve',
-              'vulnerability',
+              9.8, // CISA KEV implies critical/high, could map if CVSS available
+              'critical', 
               vuln.shortDescription,
               vuln.vendorProject,
               vuln.product,
-              100,
-              'CISA KEV',
-              JSON.stringify([vuln.vulnerabilityName]),
               vuln.dateAdded
             ] });
             count++;

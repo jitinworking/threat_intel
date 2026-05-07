@@ -1,12 +1,12 @@
 import { API_BASE_URL } from '../config';
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, User, Send, X, Terminal, Maximize2, Minimize2 } from 'lucide-react';
-import { mockApts } from '../data/mockApts';
+import { Bot, User, Send, X, Terminal, Maximize2, Minimize2, FileText, Download } from 'lucide-react';
 
 interface Message {
   id: string;
   sender: 'user' | 'bot';
-  content: React.ReactNode;
+  type?: 'text' | 'report';
+  content: string | any;
   timestamp: Date;
 }
 
@@ -18,7 +18,8 @@ export const ThreatCopilot: React.FC = () => {
     {
       id: 'welcome',
       sender: 'bot',
-      content: 'System initialized. I am your Natural Language Threat Hunter Engine. Ask me to correlate actors, locate CVE footprints, or summarize active APTs.',
+      type: 'text',
+      content: 'System initialized. I am your Natural Language Threat Hunter Engine connected to the live intelligence database. Ask me to correlate actors (e.g., "Summarize Lazarus"), or generate triage reports (e.g., "Generate a triage report for 185.12.x.x").',
       timestamp: new Date()
     }
   ]);
@@ -29,168 +30,104 @@ export const ThreatCopilot: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const parseIntelligence = async (query: string): Promise<React.ReactNode> => {
-    const q = query.toLowerCase();
-    const qStripped = q.replace(/\s/g, '');
-
-    // Strategy 1: Search by Origin
-    const origins = ['china', 'chinese', 'pakistan', 'pakistani', 'russia', 'russian', 'iran', 'iranian', 'north korea'];
-    const originMatch = origins.find(o => q.includes(o));
-    let mappedOrigin = originMatch;
-    if (originMatch === 'chinese') mappedOrigin = 'china';
-    if (originMatch === 'pakistani') mappedOrigin = 'pakistan';
-    if (originMatch === 'russian') mappedOrigin = 'russia';
-    if (originMatch === 'iranian') mappedOrigin = 'iran';
-
-    // Strategy 2: Search by Target (Sector)
-    const sectors = ['healthcare', 'finance', 'financial', 'government', 'telecom', 'defense', 'energy', 'manufacturing'];
-    const sectorMatch = sectors.find(s => q.includes(s));
-    let mappedSector = sectorMatch;
-    if (sectorMatch === 'finance' || sectorMatch === 'financial') mappedSector = 'financial';
-
-    // Strategy 3: Search by TTP / Arsenal
-    const cveMatch = q.match(/cve-\d{4}-\d{4,7}/i);
-    const hasLog4j = q.includes('log4j') || q.includes('log4shell');
-    const hasPlugX = q.includes('plugx');
-    const hasCobalt = q.includes('cobalt') || q.includes('cobalt strike') || q.includes('cobaltstrike');
-    
-    // Strategy 4: Exact APT Name or Alias matches
-    const specificApt = mockApts.find(apt => 
-      q.includes(apt.name.toLowerCase()) || 
-      apt.aliases.some(alias => q.includes(alias.toLowerCase()) || qStripped.includes(alias.toLowerCase().replace(/\s/g, '')))
-    );
-
-    // Strategy 5: Querying associated IoCs
-    const lookingForIocs = q.includes('ioc') || q.includes('ip') || q.includes('domain') || q.includes('hash');
-    if (specificApt && lookingForIocs) {
-       try {
-           const res = await fetch(`${API_BASE_URL}/api/iocs`);
-           const data = await res.json();
-           
-           // Simulate finding 3 IoCs linked to this APT from the global database
-           const linkedIocs = data.iocs.slice(0, 3);
-           
-           return (
-              <div className="flex flex-col gap-2">
-                 <p className="text-sm">Yes, my intelligence engine correlated active IoCs linked to <span className="font-bold text-blue-400 border-b border-blue-500/30 pb-0.5">{specificApt.name}</span> <span className="text-xs text-muted">(aka {specificApt.aliases[0]})</span>:</p>
-                 <div className="space-y-2 mt-2">
-                    {linkedIocs.map((ioc: any) => (
-                       <div key={ioc.id} className="bg-slate-900/50 p-2.5 rounded border border-white/5 font-mono text-xs flex justify-between items-center hover:border-blue-500/30 transition-colors">
-                          <span className={ioc.ioc_type === 'ipv4' ? 'text-blue-400' : 'text-purple-400'}>{ioc.ioc}</span>
-                          <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded text-[10px] text-muted">{ioc.ioc_type.toUpperCase()}</span>
-                       </div>
-                    ))}
-                 </div>
-                 <p className="text-[10px] text-slate-500 mt-1 italic border-t border-white/5 pt-2">Note: These indicators were extracted globally via TTP correlations.</p>
-              </div>
-           );
-       } catch (err) {
-           return `I identified the actor as ${specificApt.name}, but the live IoC matrix database is currently unreachable.`;
-       }
-    }
-
-    // Execution Logic
-    if (specificApt) {
-      return (
-         <div className="flex flex-col gap-2">
-            <p className="font-bold text-blue-400 border-b border-blue-500/20 pb-1">Executive Brief: {specificApt.name}</p>
-            <p className="text-xs"><strong>Origin:</strong> {specificApt.origin} | <strong>Threat Level:</strong> {specificApt.threatLevel}</p>
-            <p className="text-slate-300 italic text-xs leading-relaxed">"{specificApt.description}"</p>
-            <div className="bg-slate-900/50 p-2 rounded mt-1 border border-white/5">
-                <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Primary Targets</span>
-                <p className="text-xs mt-1 text-white">{specificApt.targets.join(', ')}</p>
-            </div>
-            <div className="bg-slate-900/50 p-2 rounded border border-white/5">
-                <span className="text-[10px] font-bold text-muted uppercase tracking-wider">Known Arsenal</span>
-                <p className="text-xs mt-1 text-danger font-mono break-words">{specificApt.malware.join(', ')}</p>
-            </div>
-         </div>
-      );
-    }
-
-    if (hasLog4j || cveMatch) {
-       const searchCve = hasLog4j ? 'CVE-2021-44228' : cveMatch![0].toUpperCase();
-       const exploitingApts = mockApts.filter(a => a.associatedCVEs?.includes(searchCve));
-       if (exploitingApts.length > 0) {
-           return (
-               <div>
-                  <p className="text-sm">Intel indicates the following actors actively leverage <span className="text-danger font-mono font-bold bg-danger/10 px-1 rounded">{searchCve}</span>:</p>
-                  <ul className="list-disc pl-5 mt-2 space-y-2">
-                      {exploitingApts.map(a => (
-                        <li key={a.id} className="text-blue-400 font-bold text-sm">
-                          {a.name} <span className="text-xs text-muted font-normal">({a.origin})</span>
-                        </li>
-                      ))}
-                  </ul>
-               </div>
-           );
-       } else {
-           return `I currently have no tracked threat actors in the active matrix openly exploiting ${searchCve}. However, you should still immediately apply mitigation layers protecting infrastructure from this vulnerability.`;
-       }
-    }
-    
-    if (hasPlugX || hasCobalt) {
-        const queryMalware = hasPlugX ? 'PlugX' : 'Cobalt Strike';
-        const usingApts = mockApts.filter(a => a.malware.some(m => m.toLowerCase().includes(queryMalware.toLowerCase())));
-        if (usingApts.length > 0) {
-           return (
-               <div>
-                  <p className="text-sm">Actors actively deploying <span className="text-purple-400 font-bold">{queryMalware}</span> infrastructure:</p>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                      {usingApts.map(a => <li key={a.id} className="text-white text-sm">{a.name} <span className="text-[10px] text-muted ml-1">[{a.origin}]</span></li>)}
-                  </ul>
-               </div>
-           );
-       }
-    }
-
-    if (mappedOrigin || mappedSector) {
-        let matches = mockApts;
-        if (mappedOrigin) {
-           matches = matches.filter(a => a.origin.toLowerCase() === mappedOrigin);
-        }
-        if (mappedSector) {
-           matches = matches.filter(a => a.targets.some(t => t.toLowerCase().includes(mappedSector as string)));
-        }
-
-        if (matches.length > 0) {
-           return (
-               <div>
-                  <p className="text-sm border-b border-white/10 pb-2 mb-2">I found <strong className="text-blue-400">{matches.length}</strong> active group(s) matching your parameters{mappedOrigin ? ` originating from ${mappedOrigin.toUpperCase()}` : ''}{mappedSector ? ` targeting the ${mappedSector.toUpperCase()} sector` : ''}:</p>
-                  <div className="space-y-3">
-                     {matches.map(a => (
-                         <div key={a.id} className="border-l-2 border-primary pl-3">
-                             <span className="font-bold text-white text-sm">{a.name}</span>
-                             <p className="text-[11px] text-slate-400 mt-1 break-words line-clamp-3 leading-relaxed">{a.description}</p>
-                         </div>
-                     ))}
-                  </div>
-               </div>
-           )
-        }
-    }
-
-    return "My intelligence engine could not find any active correlations for that exact query. Please refine your search using distinct threat actors, targeted sectors, vulnerabilities (CVEs), or malware families.";
+  const renderText = (text: string) => {
+    const formatted = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.*?)`/g, '<code class="bg-slate-900 px-1 rounded text-blue-400 border border-blue-500/30">$1</code>')
+      .replace(/\n/g, '<br />');
+    return <div dangerouslySetInnerHTML={{ __html: formatted }} />;
   };
 
-  const handleSend = (e: React.FormEvent) => {
+  const renderReport = (report: any) => (
+    <div className="bg-slate-900/80 border border-slate-700 rounded-lg overflow-hidden mt-1 shadow-lg w-full max-w-full text-left">
+      <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+        <h4 className="font-bold text-white text-sm flex items-center gap-2">
+          <FileText size={16} className="text-blue-400"/> {report.title}
+        </h4>
+        <button className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded flex items-center gap-1 transition-colors">
+          <Download size={12}/> PDF
+        </button>
+      </div>
+      <div className="p-4 space-y-4">
+         <div className="flex justify-between items-start border-b border-white/5 pb-3">
+            <div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider">Target Indicator</div>
+              <div className="font-mono text-sm text-red-400">{report.target}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider">Confidence</div>
+              <div className="font-bold text-yellow-400">{report.confidence}%</div>
+            </div>
+         </div>
+         
+         <div>
+            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Executive Summary</div>
+            <p className="text-sm text-slate-300 leading-relaxed">{report.summary}</p>
+         </div>
+
+         <div className="grid grid-cols-2 gap-3">
+            <div className="bg-black/20 p-2.5 rounded border border-white/5">
+               <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Attribution</div>
+               <div className="text-sm font-bold text-white">{report.malwareFamily}</div>
+            </div>
+            <div className="bg-black/20 p-2.5 rounded border border-white/5">
+               <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">MITRE Tactics</div>
+               <div className="flex gap-1 flex-wrap mt-1">
+                 {report.mitre.map((m: string) => (
+                   <span key={m} className="text-[10px] bg-slate-800 border border-slate-600 px-1.5 py-0.5 rounded text-slate-300 font-mono">
+                     {m}
+                   </span>
+                 ))}
+               </div>
+            </div>
+         </div>
+
+         <div className="pt-2 border-t border-white/5">
+            <div className="text-[10px] text-green-400 uppercase tracking-wider mb-2 font-bold">Recommended Mitigations</div>
+            <ul className="list-disc pl-4 space-y-1.5">
+              {report.recommendations.map((r: string, i: number) => (
+                <li key={i} className="text-xs text-slate-300">{r}</li>
+              ))}
+            </ul>
+         </div>
+      </div>
+    </div>
+  );
+
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMsg: Message = { id: Math.random().toString(), sender: 'user', content: input, timestamp: new Date() };
+    const userMsg: Message = { id: Math.random().toString(), sender: 'user', type: 'text', content: input, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
+    const currentInput = input;
     setInput('');
 
-    // Simulate thinking delay
-    setTimeout(async () => {
-       const botMsg: Message = {
-           id: Math.random().toString(),
-           sender: 'bot',
-           content: await parseIntelligence(userMsg.content as string),
-           timestamp: new Date()
-       };
-       setMessages(prev => [...prev, botMsg]);
-    }, 800);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/copilot/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: currentInput })
+      });
+      const data = await res.json();
+      
+      const botMsg: Message = {
+        id: Math.random().toString(),
+        sender: 'bot',
+        type: data.type || 'text',
+        content: data.content,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, botMsg]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: Math.random().toString(),
+        sender: 'bot',
+        type: 'text',
+        content: 'Error communicating with the Intelligence Parsing Engine.',
+        timestamp: new Date()
+      }]);
+    }
   };
 
   if (!isOpen) {
@@ -246,12 +183,12 @@ export const ThreatCopilot: React.FC = () => {
                          {msg.sender === 'user' ? <User size={14} /> : <Terminal size={14} />}
                      </div>
                      
-                     <div className={`p-4 rounded-2xl text-sm shadow-md ${
+                     <div className={`p-4 rounded-2xl text-sm shadow-md flex flex-col max-w-full ${
                          msg.sender === 'user' 
                          ? 'bg-blue-600 text-white rounded-br-sm' 
                          : 'bg-slate-800 border border-white/10 rounded-bl-sm text-slate-200'
                      }`}>
-                         {msg.content}
+                         {msg.type === 'report' ? renderReport(msg.content) : renderText(msg.content as string)}
                      </div>
                  </div>
              </div>

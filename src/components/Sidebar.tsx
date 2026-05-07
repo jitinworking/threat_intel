@@ -24,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
 
   const huntingItems = [
     { id: 'hunting', label: 'Hunting Hub', icon: <Terminal size={18} className="text-secondary" /> },
+    { id: 'campaigns', label: 'Campaign Timelines', icon: <Activity size={18} className="text-warning" /> },
     { id: 'emulation', label: 'Adversary Emulation', icon: <Play size={18} className="text-danger" /> },
     { id: 'blast-radius', label: 'Blast Radius', icon: <Sparkles size={18} className="text-warning" /> },
     { id: 'shadow-mapper', label: 'Shadow Mapper', icon: <Network size={18} className="text-primary" /> },

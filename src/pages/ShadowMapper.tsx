@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Network, Search, Globe, Shield, RefreshCw, AlertTriangle, Link } from 'lucide-react';
 
@@ -6,33 +7,25 @@ export const ShadowMapper: React.FC = () => {
   const [isMapping, setIsMapping] = useState(false);
   const [mapResult, setMapResult] = useState<any>(null);
 
-  const startMapping = () => {
+  const startMapping = async () => {
     if (!seed.trim()) return;
     setIsMapping(true);
     setMapResult(null);
 
-    // Simulate mapping process
-    setTimeout(() => {
-      setMapResult({
-        root: seed,
-        nodes: [
-          { type: 'domain', value: seed, label: 'Root Target' },
-          { type: 'ip', value: '104.21.44.12', label: 'A Record (Cloudflare)' },
-          { type: 'ip', value: '185.199.108.153', label: 'Historical IP' },
-          { type: 'ssl', value: 'JARM: 29d29d15d29d29d00029d29d29d29d...', label: 'SSL Certificate Match' },
-          { type: 'domain', value: 'malicious-phish.net', label: 'Shared JARM Domain' },
-          { type: 'domain', value: 'secure-login-portal.com', label: 'Shared JARM Domain' }
-        ],
-        edges: [
-          { from: 0, to: 1, label: 'Resolves To' },
-          { from: 0, to: 2, label: 'Historical' },
-          { from: 2, to: 3, label: 'Hosted Cert' },
-          { from: 3, to: 4, label: 'JARM Match' },
-          { from: 3, to: 5, label: 'JARM Match' }
-        ]
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/shadow-map`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seed })
       });
+      const data = await res.json();
+      setMapResult(data);
+    } catch (e) {
+      console.error(e);
+      setMapResult(null);
+    } finally {
       setIsMapping(false);
-    }, 3000);
+    }
   };
 
   return (

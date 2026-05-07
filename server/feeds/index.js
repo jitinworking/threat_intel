@@ -14,6 +14,7 @@ import { pollPulseDive } from './pulsedive.js';
 import { pollPhishTank } from './phishtank.js';
 import { pollNews } from './news.js';
 import { pollSSLBL } from './sslbl.js';
+import { pollRansomware } from './ransomware.js';
 import { enrichRecentIoCs } from '../enrichment.js';
 import { processAlerts } from '../alerting.js';
 import { broadcast } from '../index.js';
@@ -34,6 +35,7 @@ const feedMap = {
   'PhishTank': pollPhishTank,
   'News': pollNews,
   'SSLBL': pollSSLBL,
+  'Ransomware Live': pollRansomware,
 };
 
 export async function runAllFeeds() {

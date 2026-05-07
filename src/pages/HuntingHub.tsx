@@ -1,5 +1,6 @@
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
-import { Terminal, Copy, Search, Shield, Zap, Info, Play } from 'lucide-react';
+import { Terminal, Copy, Search, Shield, Zap, Info, Play, Code, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface HuntingRule {
   id: string;
@@ -64,6 +65,29 @@ const hunterRules: HuntingRule[] = [
 export const HuntingHub: React.FC = () => {
   const [selectedRule, setSelectedRule] = useState<HuntingRule | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'library' | 'validator'>('library');
+  const [customRule, setCustomRule] = useState('');
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [validating, setValidating] = useState(false);
+
+  const handleValidate = async () => {
+    if (!customRule) return;
+    setValidating(true);
+    setValidationResult(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/rules/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule: customRule })
+      });
+      const data = await res.json();
+      setValidationResult(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setValidating(false);
+    }
+  };
 
   const filteredRules = hunterRules.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -82,10 +106,25 @@ export const HuntingHub: React.FC = () => {
           <h1 className="text-2xl font-bold flex items-center gap-3">
             <Terminal className="text-secondary" size={28} /> Hunting Hub
           </h1>
-          <p className="text-muted text-sm mt-1">Convert TTPs into actionable hunting queries for your SIEM.</p>
+          <p className="text-muted text-sm mt-1">Convert TTPs into actionable hunting queries or validate custom YARA/Sigma rules.</p>
+        </div>
+        <div className="flex bg-slate-900/50 rounded-lg p-1 border border-white/5">
+          <button 
+            onClick={() => setActiveTab('library')}
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'library' ? 'bg-secondary text-white shadow-lg shadow-secondary/20' : 'text-muted hover:text-white'}`}
+          >
+            Query Library
+          </button>
+          <button 
+            onClick={() => setActiveTab('validator')}
+            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'validator' ? 'bg-secondary text-white shadow-lg shadow-secondary/20' : 'text-muted hover:text-white'}`}
+          >
+            Rule Validator
+          </button>
         </div>
       </div>
 
+      {activeTab === 'library' ? (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Rules List */}
         <div className="lg:col-span-4 flex flex-col gap-4">
@@ -191,6 +230,66 @@ export const HuntingHub: React.FC = () => {
           )}
         </div>
       </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[600px]">
+          <div className="glass-panel p-6 flex flex-col gap-4 border-white/10">
+            <h2 className="text-lg font-bold flex items-center gap-2"><Code size={20} className="text-secondary" /> Paste Custom Rule</h2>
+            <p className="text-xs text-muted">Paste a YARA or Sigma rule generated from the Threat Actor Directory to search the IoC database retrospectively.</p>
+            <textarea 
+              value={customRule}
+              onChange={(e) => setCustomRule(e.target.value)}
+              placeholder="rule APT_Example { ... } or title: Detect Suspicious Activity ..."
+              className="flex-1 bg-slate-950/80 border border-white/10 rounded-lg p-4 text-sm font-mono text-slate-300 outline-none focus:border-secondary focus:ring-1 focus:ring-secondary custom-scrollbar resize-none"
+            />
+            <button 
+              onClick={handleValidate}
+              disabled={validating || !customRule}
+              className="w-full py-3 bg-secondary hover:bg-secondary-hover disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+            >
+              {validating ? 'Validating...' : <><Shield size={18} /> Validate & Search</>}
+            </button>
+          </div>
+          
+          <div className="glass-panel p-6 flex flex-col gap-4 border-white/10 overflow-y-auto custom-scrollbar">
+            <h2 className="text-lg font-bold">Validation Results</h2>
+            {validationResult ? (
+              <div className="flex flex-col gap-4">
+                <div className={`p-4 rounded-lg border ${validationResult.matches.length > 0 ? 'bg-danger/10 border-danger/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    {validationResult.matches.length > 0 ? <AlertTriangle className="text-danger" size={24} /> : <CheckCircle className="text-green-500" size={24} />}
+                    <h3 className={`font-bold ${validationResult.matches.length > 0 ? 'text-danger' : 'text-green-500'}`}>
+                      {validationResult.matches.length} Historical Matches Found
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-300">
+                    Rule parsed as <span className="font-bold text-white">{validationResult.type}</span>. Extracted {validationResult.extractedIndicators?.length || 0} unique indicators.
+                  </p>
+                </div>
+                
+                {validationResult.matches.length > 0 && (
+                  <div className="space-y-3 mt-2">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted">Correlated Indicators</h4>
+                    {validationResult.matches.map((m: any, i: number) => (
+                      <div key={i} className="p-3 bg-slate-900/80 border border-white/5 rounded flex justify-between items-center">
+                        <div>
+                          <p className="font-mono text-sm text-white">{m.ioc}</p>
+                          <p className="text-xs text-muted mt-1">{m.source} • {new Date(m.created_at).toLocaleDateString()}</p>
+                        </div>
+                        {m.malware && <span className="badge badge-warning">{m.malware}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted opacity-50">
+                <Search size={48} className="mb-4" />
+                <p>Run validation to see historical matches here.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -41,6 +41,8 @@ export const IoCFeed: React.FC = () => {
   const [iocTypeFilter, setIocTypeFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showParseModal, setShowParseModal] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [isParsing, setIsParsing] = useState(false);
   const [hideStale, setHideStale] = useState(true);
   const [customIoc, setCustomIoc] = useState({ ioc: '', ioc_type: 'ip-dst', malware_printable: '', tags: '' });
   const [iocs, setIocs] = useState<IoC[]>([]);
@@ -56,12 +58,16 @@ export const IoCFeed: React.FC = () => {
   const [investigationLoading, setInvestigationLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const downloadMenuRef = useRef<HTMLDivElement>(null);
+  const parseMenuRef = useRef<HTMLDivElement>(null);
 
   // Close download menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (downloadMenuRef.current && !downloadMenuRef.current.contains(event.target as Node)) {
         setShowDownloadMenu(false);
+      }
+      if (parseMenuRef.current && !parseMenuRef.current.contains(event.target as Node)) {
+        setShowParseModal(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -227,6 +233,28 @@ export const IoCFeed: React.FC = () => {
     }
   };
 
+  const handleParseReport = async () => {
+    if (!reportText.trim()) return;
+    setIsParsing(true);
+    try {
+      const res = await fetch(`${BACKEND}/api/parse-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportText })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      alert(`Report parsed! ${data.count} new IoCs extracted and added to the database.`);
+      setShowParseModal(false);
+      setReportText('');
+      loadData();
+    } catch (err) {
+      alert('Failed to parse report: ' + err);
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
   const handleDownload = async (type: 'all' | 'ips' | 'domains' | 'hashes') => {
     try {
       const params = new URLSearchParams({ limit: '50000' });
@@ -263,7 +291,7 @@ export const IoCFeed: React.FC = () => {
   return (
     <div className="animate-fade-in flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-wrap justify-between items-center gap-4">
+      <div className="flex flex-wrap justify-between items-center gap-4 relative" style={{ zIndex: 9999 }}>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-3">
             Indicator of Compromise Feed
@@ -278,9 +306,39 @@ export const IoCFeed: React.FC = () => {
           <button onClick={() => setShowAddModal(true)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-primary shrink-0">
             + Add Custom Intel
           </button>
-          <button onClick={() => setShowParseModal(true)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-purple-400 shrink-0">
-            <Sparkles size={16} /> Auto-Parse Report
-          </button>
+          <div className="relative shrink-0" ref={parseMenuRef}>
+            <button onClick={() => setShowParseModal(!showParseModal)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm text-purple-400 shrink-0">
+              <Sparkles size={16} /> Auto-Parse Report
+            </button>
+            {showParseModal && (
+              <div className="glass-panel absolute left-1/2 -translate-x-1/2 mt-2 p-4 flex flex-col gap-3 w-[400px] md:w-[500px]" style={{ zIndex: 99999, background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)' }}>
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="text-sm font-bold text-purple-400 flex items-center gap-2"><Sparkles size={14}/> Parse Intelligence</h3>
+                  <button onClick={() => setShowParseModal(false)} className="text-muted hover:text-white"><X size={14}/></button>
+                </div>
+                <p className="text-xs text-muted leading-relaxed">Paste a Mandiant, CrowdStrike, or general CTI report URL or raw text below. The AI will extract all IoCs and add them to your feed.</p>
+                <textarea 
+                  value={reportText}
+                  onChange={(e) => setReportText(e.target.value)}
+                  className="glass-panel w-full p-3 text-xs font-mono text-slate-300 outline-none custom-scrollbar" 
+                  style={{ height: '150px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)' }}
+                  placeholder="https://example.com/report.pdf&#10;&#10;OR&#10;&#10;Paste raw report text..."
+                  disabled={isParsing}
+                />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setShowParseModal(false)} className="px-3 py-1.5 text-xs text-muted hover:text-white" disabled={isParsing}>Cancel</button>
+                  <button 
+                    onClick={handleParseReport} 
+                    disabled={isParsing || !reportText.trim()}
+                    className="px-4 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded border border-purple-500/30 text-xs font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(168,85,247,0.2)] disabled:opacity-50"
+                  >
+                    {isParsing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />} 
+                    {isParsing ? 'Parsing...' : 'Extract IoCs'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button onClick={() => exportToCSV(iocs)} className="glass-panel px-4 py-2 flex items-center gap-2 hover:text-white transition-all text-sm shrink-0">
             <Download size={16} /> Export CSV
           </button>
@@ -295,7 +353,7 @@ export const IoCFeed: React.FC = () => {
               <Download size={16} /> Download IOCs...
             </button>
             {showDownloadMenu && (
-              <div className="glass-panel absolute right-0 mt-2 p-2 flex flex-col gap-1 z-50 min-w-[180px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)' }}>
+              <div className="glass-panel absolute right-0 mt-2 p-2 flex flex-col gap-1 min-w-[180px]" style={{ zIndex: 99999, background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5)' }}>
                 <button 
                   onClick={() => handleDownload('all')}
                   className="text-left px-3 py-2 text-xs hover:bg-[rgba(255,255,255,0.05)] rounded transition-colors flex items-center justify-between"
@@ -331,7 +389,7 @@ export const IoCFeed: React.FC = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="glass-panel p-4 flex flex-wrap gap-4 items-center stagger-1">
+      <div className="glass-panel p-4 flex flex-wrap gap-4 items-center stagger-1 relative" style={{ zIndex: 1 }}>
         <div className="glass-panel flex-1 min-w-[200px] px-3 py-2 flex items-center gap-2" style={{ borderRadius: 'var(--radius-sm)' }}>
           <Search size={16} className="text-muted shrink-0" />
           <input
@@ -568,37 +626,7 @@ export const IoCFeed: React.FC = () => {
         </div>
       )}
 
-      {showParseModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div className="glass-panel p-6" style={{ width: '600px', background: 'var(--bg-card)' }}>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-purple-400">
-                <Sparkles size={20} /> Auto-Parse Threat Report
-              </h2>
-              <button onClick={() => setShowParseModal(false)} className="text-muted hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-            <p className="text-sm text-muted mb-4">Paste a Mandiant, CrowdStrike, or general CTI report URL or raw text below. The AI will extract all IoCs and add them to your feed.</p>
-            <div className="flex flex-col gap-4">
-              <textarea 
-                className="glass-panel w-full p-4 text-sm font-mono text-slate-300 outline-none custom-scrollbar" 
-                style={{ height: '200px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)' }}
-                placeholder="https://example.com/report.pdf&#10;&#10;OR&#10;&#10;Paste raw report text containing IPs, Hashes, and Domains..."
-              />
-              <div className="flex justify-end gap-3 mt-2">
-                <button onClick={() => setShowParseModal(false)} className="px-4 py-2 text-sm text-muted hover:text-white">Cancel</button>
-                <button onClick={() => {
-                  alert('Report parsed! 47 new IoCs extracted and added to the database.');
-                  setShowParseModal(false);
-                }} className="px-6 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded border border-purple-500/30 text-sm font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(168,85,247,0.2)]">
-                  <Sparkles size={16} /> Extract IoCs
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Correlation Side Drawer */}
       {selectedIoc && (

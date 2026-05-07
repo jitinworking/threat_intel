@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { API_BASE_URL } from '../config';
+import React, { useState, useEffect } from 'react';
 import { Play, Shield, Skull, Zap, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface EmulationTask {
@@ -17,33 +18,46 @@ interface AptEmulationPlan {
   tasks: EmulationTask[];
 }
 
-const emulationPlans: AptEmulationPlan[] = [
-  {
-    id: 'apt29',
-    name: 'APT29 (Cozy Bear)',
-    description: 'Emulate stealthy credential access and lateral movement typical of Russian SVR operations.',
-    tasks: [
-      { id: 'T1059.001', tactic: 'Execution', technique: 'PowerShell', description: 'Execute Base64 encoded PowerShell payload.', command: 'powershell -exec bypass -e JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAEkATwAuAE0AZQBtAG8AcgB5AFMAdAByAGUAYQBtACgAWwBDAG8AbgB2AGUAcgB0AF0AOgA6AEYAcgBvAG0AQgBhAHMAZQA2ADQAUwB0AHIAaQBuAGcAKAAiAEgA...=', status: 'pending' },
-      { id: 'T1003.001', tactic: 'Credential Access', technique: 'LSASS Memory', description: 'Dump LSASS memory using comsvcs.dll.', command: 'rundll32.exe C:\\windows\\System32\\comsvcs.dll, MiniDump 624 C:\\temp\\lsass.dmp full', status: 'pending' },
-      { id: 'T1098', tactic: 'Persistence', technique: 'Account Manipulation', description: 'Add user to local administrators group.', command: 'net localgroup administrators attacker /add', status: 'pending' }
-    ]
-  },
-  {
-    id: 'lazarus',
-    name: 'Lazarus Group',
-    description: 'Emulate destructive payload deployment and SMB lateral movement.',
-    tasks: [
-      { id: 'T1047', tactic: 'Execution', technique: 'WMI', description: 'Remote process execution via WMI.', command: 'wmic /node:"192.168.1.50" process call create "cmd.exe /c start payload.exe"', status: 'pending' },
-      { id: 'T1486', tactic: 'Impact', technique: 'Data Encrypted for Impact', description: 'Simulate ransomware file encryption (dry run).', command: 'cipher /e /s:C:\\Users\\Public\\Documents', status: 'pending' },
-      { id: 'T1070.004', tactic: 'Defense Evasion', technique: 'File Deletion', description: 'Delete volume shadow copies.', command: 'vssadmin.exe Delete Shadows /All /Quiet', status: 'pending' }
-    ]
-  }
-];
-
 export const AdversaryEmulation: React.FC = () => {
+  const [emulationPlans, setEmulationPlans] = useState<AptEmulationPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<AptEmulationPlan | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [tasks, setTasks] = useState<EmulationTask[]>([]);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/emulation`);
+        const data = await res.json();
+        
+        // Group tasks by tactic to create plans
+        const groups: Record<string, EmulationTask[]> = {};
+        data.forEach((row: any) => {
+          if (!groups[row.tactic]) groups[row.tactic] = [];
+          groups[row.tactic].push({
+            id: row.mitre_id || row.id,
+            tactic: row.tactic,
+            technique: row.technique,
+            description: row.description,
+            command: row.procedure,
+            status: 'pending'
+          });
+        });
+
+        const plans: AptEmulationPlan[] = Object.entries(groups).map(([tactic, tasks], i) => ({
+          id: `plan-${i}`,
+          name: `${tactic} Emulation`,
+          description: `Emulate techniques related to the ${tactic} tactic.`,
+          tasks
+        }));
+
+        setEmulationPlans(plans);
+      } catch (err) {
+        console.error("Failed to fetch emulation plans:", err);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   const selectPlan = (plan: AptEmulationPlan) => {
     setSelectedPlan(plan);
@@ -64,7 +78,9 @@ export const AdversaryEmulation: React.FC = () => {
       
       setTasks(prev => {
         const newTasks = [...prev];
-        newTasks[currentTask].status = 'running';
+        if (newTasks[currentTask]) {
+          newTasks[currentTask] = { ...newTasks[currentTask], status: 'running' };
+        }
         return newTasks;
       });
 
@@ -72,7 +88,9 @@ export const AdversaryEmulation: React.FC = () => {
         setTasks(prev => {
           const newTasks = [...prev];
           // Randomly fail some tasks to simulate EDR blocking
-          newTasks[currentTask].status = Math.random() > 0.7 ? 'failed' : 'success';
+          if (newTasks[currentTask]) {
+            newTasks[currentTask] = { ...newTasks[currentTask], status: Math.random() > 0.7 ? 'failed' : 'success' };
+          }
           return newTasks;
         });
         currentTask++;

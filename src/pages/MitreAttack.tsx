@@ -1,5 +1,5 @@
-import React from 'react';
-import { Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, X, ShieldCheck } from 'lucide-react';
 
 // MITRE ATT&CK Techniques mapped to common threat categories
 const MITRE_TACTICS = [
@@ -77,10 +77,21 @@ const heatColor = (count: number) => {
 };
 
 export const MitreAttack: React.FC = () => {
-  const [overlay, setOverlay] = React.useState<'none' | 'china' | 'pakistan'>('none');
+  const [overlay, setOverlay] = useState<'none' | 'china' | 'pakistan' | 'defensive'>('none');
+  const [selectedTech, setSelectedTech] = useState<any>(null);
 
   const CHINA_TECHNIQUES = ['T1190', 'T1078', 'T1059', 'T1543', 'T1068', 'T1027', 'T1003', 'T1570', 'T1105', 'T1041', 'T1489'];
   const PAKISTAN_TECHNIQUES = ['T1566', 'T1204', 'T1059', 'T1547', 'T1548', 'T1027', 'T1110', 'T1083', 'T1021', 'T1005', 'T1071'];
+  const COVERED_TECHNIQUES = ['T1566', 'T1059', 'T1053', 'T1027', 'T1003', 'T1110', 'T1082', 'T1048', 'T1543'];
+
+  // Mock D3FEND data
+  const getD3FendMapping = (_techId: string) => {
+    return [
+      { id: 'D3-SRA', name: 'Sender Reputation Analysis', type: 'Detect' },
+      { id: 'D3-MA', name: 'Message Authentication', type: 'Isolate' },
+      { id: 'D3-FA', name: 'File Analysis', type: 'Detect' }
+    ];
+  };
 
   const getAdjustedCount = (techId: string, baseCount: number) => {
     if (overlay === 'none') return baseCount;
@@ -126,6 +137,12 @@ export const MitreAttack: React.FC = () => {
           >
             Pakistan Overlay
           </button>
+          <button
+            onClick={() => setOverlay('defensive')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${overlay === 'defensive' ? 'bg-green-500 text-white' : 'text-muted hover:text-white'}`}
+          >
+            <ShieldCheck size={16} /> EDR Coverage
+          </button>
         </div>
       </div>
 
@@ -144,21 +161,26 @@ export const MitreAttack: React.FC = () => {
                     key={tech.id}
                     className="p-3 rounded"
                     style={{
-                      background: heatColor(count),
-                      border: `1px solid ${severityColor(tech.severity)}33`,
+                      background: overlay === 'defensive' 
+                        ? (COVERED_TECHNIQUES.includes(tech.id) ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.3)')
+                        : heatColor(count),
+                      border: overlay === 'defensive'
+                        ? (COVERED_TECHNIQUES.includes(tech.id) ? '1px solid rgba(34, 197, 94, 0.5)' : '1px solid rgba(239, 68, 68, 0.5)')
+                        : `1px solid ${severityColor(tech.severity)}33`,
                       borderRadius: 'var(--radius-sm)',
                       minWidth: '160px',
                       cursor: 'pointer',
                       transition: 'all 0.3s ease',
-                      opacity: overlay !== 'none' && !CHINA_TECHNIQUES.includes(tech.id) && !PAKISTAN_TECHNIQUES.includes(tech.id) && count < 80 ? 0.5 : 1
+                      opacity: overlay !== 'none' && overlay !== 'defensive' && !CHINA_TECHNIQUES.includes(tech.id) && !PAKISTAN_TECHNIQUES.includes(tech.id) && count < 80 ? 0.5 : 1
                     }}
+                    onClick={() => setSelectedTech(tech)}
                     title={`${tech.id}: ${tech.name} — Adjusted Observations: ${Math.round(count)}`}
                   >
                     <div className="text-xs text-muted font-mono">{tech.id}</div>
                     <div className="text-sm font-bold mt-1">{tech.name}</div>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs font-bold" style={{ color: severityColor(tech.severity) }}>
-                        {overlay !== 'none' ? (count > 80 ? 'HIGH PROBABILITY' : 'LOW SIGNAL') : `${Math.round(count)} events`}
+                      <span className="text-xs font-bold" style={{ color: overlay === 'defensive' ? (COVERED_TECHNIQUES.includes(tech.id) ? '#4ade80' : '#f87171') : severityColor(tech.severity) }}>
+                        {overlay === 'defensive' ? (COVERED_TECHNIQUES.includes(tech.id) ? 'COVERED' : 'BLIND SPOT') : overlay !== 'none' ? (count > 80 ? 'HIGH PROBABILITY' : 'LOW SIGNAL') : `${Math.round(count)} events`}
                       </span>
                     </div>
                   </div>
@@ -173,20 +195,81 @@ export const MitreAttack: React.FC = () => {
       <div className="glass-panel p-4 stagger-2">
         <h3 className="text-sm font-semibold mb-3">Heatmap Legend</h3>
         <div className="flex gap-6 items-center">
-          {[
-            { label: 'Low (< 80)', color: 'rgba(255,255,255,0.06)' },
-            { label: 'Medium (80-150)', color: 'rgba(var(--primary-rgb), 0.25)' },
-            { label: 'High (150-250)', color: 'rgba(var(--warning-rgb), 0.35)' },
-            { label: 'Very High (250-400)', color: 'rgba(var(--danger-rgb), 0.35)' },
-            { label: 'Critical (400+)', color: 'rgba(var(--danger-rgb), 0.6)' },
-          ].map(item => (
-            <div key={item.label} className="flex items-center gap-2">
-              <div style={{ width: 16, height: 16, borderRadius: 3, background: item.color, border: '1px solid rgba(255,255,255,0.1)' }}></div>
-              <span className="text-xs text-muted">{item.label}</span>
-            </div>
-          ))}
+          {overlay === 'defensive' ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div style={{ width: 16, height: 16, borderRadius: 3, background: 'rgba(34, 197, 94, 0.2)', border: '1px solid rgba(34, 197, 94, 0.5)' }}></div>
+                <span className="text-xs text-muted">EDR Coverage Active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div style={{ width: 16, height: 16, borderRadius: 3, background: 'rgba(239, 68, 68, 0.3)', border: '1px solid rgba(239, 68, 68, 0.5)' }}></div>
+                <span className="text-xs text-muted">Telemetry Blind Spot</span>
+              </div>
+            </>
+          ) : (
+            [
+              { label: 'Low (< 80)', color: 'rgba(255,255,255,0.06)' },
+              { label: 'Medium (80-150)', color: 'rgba(var(--primary-rgb), 0.25)' },
+              { label: 'High (150-250)', color: 'rgba(var(--warning-rgb), 0.35)' },
+              { label: 'Very High (250-400)', color: 'rgba(var(--danger-rgb), 0.35)' },
+              { label: 'Critical (400+)', color: 'rgba(var(--danger-rgb), 0.6)' },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-2">
+                <div style={{ width: 16, height: 16, borderRadius: 3, background: item.color, border: '1px solid rgba(255,255,255,0.1)' }}></div>
+                <span className="text-xs text-muted">{item.label}</span>
+              </div>
+            ))
+          )}
         </div>
       </div>
+
+      {/* D3FEND Side Panel */}
+      {selectedTech && (
+        <div className="fixed top-0 right-0 bottom-0 w-[400px] bg-[#0a0f18] border-l border-white/10 shadow-2xl p-6 z-50 flex flex-col transition-transform" style={{ animation: 'slideInRight 0.3s forwards' }}>
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/10">
+            <div>
+              <div className="text-primary font-mono text-sm">{selectedTech.id}</div>
+              <h2 className="text-xl font-bold">{selectedTech.name}</h2>
+            </div>
+            <button onClick={() => setSelectedTech(null)} className="text-slate-400 hover:text-white bg-white/5 p-2 rounded-full">
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted mb-4 flex items-center gap-2">
+              <Shield size={16} className="text-green-400" />
+              MITRE D3FEND Countermeasures
+            </h3>
+            
+            <div className="flex flex-col gap-4">
+              {getD3FendMapping(selectedTech.id).map(d3 => (
+                <div key={d3.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-bold text-slate-200">{d3.name}</span>
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-green-500/30 bg-green-500/10 text-green-400">
+                      {d3.type}
+                    </span>
+                  </div>
+                  <div className="text-xs font-mono text-slate-400">{d3.id}</div>
+                  <p className="text-sm text-slate-400 mt-2">
+                    Implement {d3.name.toLowerCase()} controls to detect or isolate attempts at {selectedTech.name.toLowerCase()}.
+                  </p>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-8 bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+               <h4 className="font-bold text-sm text-blue-400 mb-2">Status</h4>
+               <p className="text-sm text-slate-300">
+                 {COVERED_TECHNIQUES.includes(selectedTech.id) 
+                   ? "✅ Your EDR policy currently provides coverage for this technique."
+                   : "⚠️ You currently lack direct telemetry or prevention capabilities for this technique."}
+               </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

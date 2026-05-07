@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { API_BASE_URL } from '../config';
+import React, { useState, useEffect } from 'react';
 import { Crosshair, Server, Globe, Box, Plus, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { mockApts } from '../data/mockApts';
 
 interface Asset {
   id: string;
@@ -9,24 +9,43 @@ interface Asset {
 }
 
 export const AttackSurface: React.FC = () => {
-  const [assets, setAssets] = useState<Asset[]>([
-    { id: '1', type: 'Technology', value: 'Microsoft Exchange' },
-    { id: '2', type: 'Technology', value: 'Atlassian Confluence' },
-    { id: '3', type: 'IP', value: '198.51.100.24' },
-    { id: '4', type: 'Domain', value: 'internal-portal.corp.local' }
-  ]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [apts, setApts] = useState<any[]>([]);
   const [newAssetType, setNewAssetType] = useState<'IP'|'Domain'|'Technology'>('Technology');
   const [newAssetValue, setNewAssetValue] = useState('');
 
-  const addAsset = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/assets`).then(res => res.json()).then(setAssets);
+    fetch(`${API_BASE_URL}/api/apts`).then(res => res.json()).then(data => {
+      // Data might have targets as strings if they are parsed, ensure they are arrays
+      setApts(data.map((apt: any) => ({
+        ...apt,
+        targets: Array.isArray(apt.targets) ? apt.targets : JSON.parse(apt.targets || '[]'),
+        associatedCVEs: Array.isArray(apt.associatedCVEs) ? apt.associatedCVEs : JSON.parse(apt.associatedCVEs || '[]')
+      })));
+    });
+  }, []);
+
+  const addAsset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssetValue.trim()) return;
-    setAssets([...assets, { id: Math.random().toString(), type: newAssetType, value: newAssetValue }]);
-    setNewAssetValue('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: newAssetType, value: newAssetValue })
+      });
+      const newAsset = await res.json();
+      setAssets(prev => [...prev, newAsset]);
+      setNewAssetValue('');
+    } catch (err) { console.error(err); }
   };
 
-  const removeAsset = (id: string) => {
-    setAssets(assets.filter(a => a.id !== id));
+  const removeAsset = async (id: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/assets/${id}`, { method: 'DELETE' });
+      setAssets(assets.filter(a => a.id !== id));
+    } catch (err) { console.error(err); }
   };
 
   // Correlation Logic
@@ -35,9 +54,9 @@ export const AttackSurface: React.FC = () => {
     if (asset.type === 'Technology') {
       const valLower = asset.value.toLowerCase();
       // Tech matches APT targets or CVE descriptions (mocked)
-      mockApts.forEach(apt => {
+      apts.forEach(apt => {
         if (
-          apt.targets.some(t => t.toLowerCase().includes(valLower)) ||
+          (apt.targets && apt.targets.some((t: string) => t.toLowerCase().includes(valLower))) ||
           (valLower.includes('exchange') && apt.associatedCVEs?.includes('CVE-2021-26855')) ||
           (valLower.includes('confluence') && apt.associatedCVEs?.includes('CVE-2022-26134')) ||
           (valLower.includes('pulse') && apt.associatedCVEs?.includes('CVE-2019-11510')) ||

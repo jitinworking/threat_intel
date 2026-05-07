@@ -127,6 +127,30 @@ export async function initDB() {
       description TEXT DEFAULT '',
       published_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS darkweb_leaks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      domain TEXT NOT NULL,
+      source TEXT NOT NULL,
+      severity TEXT DEFAULT 'Medium',
+      compromised_accounts INTEGER DEFAULT 0,
+      published_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS emulation_plans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      tactic TEXT DEFAULT '',
+      technique TEXT DEFAULT '',
+      procedure TEXT DEFAULT '',
+      mitre_id TEXT DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS assets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      value TEXT NOT NULL UNIQUE
+    );
   `);
 
   // Seed default feeds
@@ -146,7 +170,8 @@ export async function initDB() {
     { name: 'PulseDive', type: 'api', url: 'https://pulsedive.com/feed/' },
     { name: 'PhishTank', type: 'api', url: 'https://raw.githubusercontent.com/mitchellkrogza/Phishing.Database/master/phishing-links-ACTIVE.txt' },
     { name: 'News', type: 'rss', url: 'cyber-news-aggregator' },
-    { name: 'SSLBL', type: 'api', url: 'https://sslbl.abuse.ch/blacklist/sslblacklist.csv' }
+    { name: 'SSLBL', type: 'api', url: 'https://sslbl.abuse.ch/blacklist/sslblacklist.csv' },
+    { name: 'Ransomware Live', type: 'api', url: 'https://api.ransomware.live/recentvictims' }
   ];
 
   for (const feed of defaultFeeds) {
@@ -202,6 +227,44 @@ export async function initDB() {
     ];
     for (const leak of leaks) {
       await db.execute({ sql: 'INSERT INTO ransomware_leaks (group_name, victim_name, victim_url, description) VALUES (?, ?, ?, ?)', args: [leak.group, leak.victim, leak.url, leak.desc] });
+    }
+  }
+
+  // Seed Dark Web Leaks
+  const darkwebCount = await db.execute('SELECT COUNT(*) as count FROM darkweb_leaks');
+  if (darkwebCount.rows[0].count === 0) {
+    const leaks = [
+      { domain: 'corp.local', source: 'Naz.API', severity: 'High', accounts: 245 },
+      { domain: 'internal-portal.corp.local', source: 'RedLine Stealer Logs', severity: 'Critical', accounts: 12 }
+    ];
+    for (const leak of leaks) {
+      await db.execute({ sql: 'INSERT INTO darkweb_leaks (domain, source, severity, compromised_accounts) VALUES (?, ?, ?, ?)', args: [leak.domain, leak.source, leak.severity, leak.accounts] });
+    }
+  }
+
+  // Seed Emulation Plans
+  const emulationCount = await db.execute('SELECT COUNT(*) as count FROM emulation_plans');
+  if (emulationCount.rows[0].count === 0) {
+    const plans = [
+      { id: 'AE-001', name: 'LSASS Memory Dump', desc: 'Attempt to dump LSASS memory using ProcDump.', tactic: 'Credential Access', technique: 'OS Credential Dumping', procedure: 'procdump.exe -ma lsass.exe lsass.dmp', mitre: 'T1003.001' },
+      { id: 'AE-002', name: 'Kerberoasting', desc: 'Request service tickets and extract hashes.', tactic: 'Credential Access', technique: 'Steal or Forge Kerberos Tickets', procedure: 'Invoke-Kerberoast -OutputFormat Hashcat', mitre: 'T1558.003' }
+    ];
+    for (const plan of plans) {
+      await db.execute({ sql: 'INSERT INTO emulation_plans (id, name, description, tactic, technique, procedure, mitre_id) VALUES (?, ?, ?, ?, ?, ?, ?)', args: [plan.id, plan.name, plan.desc, plan.tactic, plan.technique, plan.procedure, plan.mitre] });
+    }
+  }
+
+  // Seed Assets
+  const assetsCount = await db.execute('SELECT COUNT(*) as count FROM assets');
+  if (assetsCount.rows[0].count === 0) {
+    const assets = [
+      { type: 'Technology', value: 'Microsoft Exchange' },
+      { type: 'Technology', value: 'Atlassian Confluence' },
+      { type: 'IP', value: '198.51.100.24' },
+      { type: 'Domain', value: 'internal-portal.corp.local' }
+    ];
+    for (const asset of assets) {
+      await db.execute({ sql: 'INSERT OR IGNORE INTO assets (type, value) VALUES (?, ?)', args: [asset.type, asset.value] });
     }
   }
 

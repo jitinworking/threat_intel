@@ -1,13 +1,14 @@
+import { API_BASE_URL } from '../config';
 import React, { useState } from 'react';
 import { Search, EyeOff, ShieldAlert, Key, Mail, Database, Terminal, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface LeakRecord {
   id: string;
-  email: string;
-  passwordHash: string;
+  domain: string;
   source: string;
-  date: string;
+  published_at: string;
   severity: 'Critical' | 'High' | 'Medium';
+  compromised_accounts: number;
 }
 
 export const DarkWebMonitor: React.FC = () => {
@@ -26,58 +27,22 @@ export const DarkWebMonitor: React.FC = () => {
     "Compiling final compromised asset list."
   ];
 
-  // Simple string hash for deterministic "randomness"
-  const hashString = (str: string) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = (hash << 5) - hash + str.charCodeAt(i);
-        hash |= 0; 
+  const fetchLeaks = async (targetDomain: string): Promise<LeakRecord[]> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/darkweb`);
+      const data = await res.json();
+      // Filter by domain on the frontend for now, or just return all if it matches partially
+      const filtered = data.filter((d: any) => d.domain.toLowerCase().includes(targetDomain.toLowerCase().trim()));
+      
+      // Sort by severity
+      return filtered.sort((a: any, b: any) => {
+          const val: any = { 'Critical': 3, 'High': 2, 'Medium': 1 };
+          return (val[b.severity] || 0) - (val[a.severity] || 0);
+      });
+    } catch (e) {
+      console.error(e);
+      return [];
     }
-    return Math.abs(hash);
-  };
-
-  const generateDeterministicLeaks = (targetDomain: string): LeakRecord[] => {
-    const seed = hashString(targetDomain.toLowerCase());
-    const count = (seed % 6) + 2; // 2 to 7 leaks
-    
-    const prefixes = ['admin', 'j.doe', 'info', 'support', 'ceo', 'dev.team', 'marketing', 's.smith', 'a.taylor', 'it.admin'];
-    const sources = ['Collection #1', 'Naz.API', 'LinkedIn Breach (2012)', 'RedLine Stealer Logs', 'Cit0day', 'Raccoon Stealer'];
-    const severities: ('Critical' | 'High' | 'Medium')[] = ['Critical', 'High', 'Medium'];
-
-    const leaks: LeakRecord[] = [];
-    
-    for (let i = 0; i < count; i++) {
-        const pIndex = (seed + i * 3) % prefixes.length;
-        const sIndex = (seed + i * 5) % sources.length;
-        const sevIndex = (seed + i * 7) % severities.length;
-        
-        let fakePass = '';
-        if (sevIndex === 0) {
-            // Critical -> plain text
-            fakePass = `Winter${2020 + (seed % 6)}!@#`;
-        } else if (sevIndex === 1) {
-            // High -> partially obfuscated
-            fakePass = `Password12${'*'.repeat(4)}`;
-        } else {
-            // Medium -> MD5 hash
-            fakePass = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        }
-
-        leaks.push({
-            id: `leak-${i}-${seed}`,
-            email: `${prefixes[pIndex]}@${targetDomain.toLowerCase()}`,
-            passwordHash: fakePass,
-            source: sources[sIndex],
-            date: new Date(Date.now() - (seed % 1000) * 86400000 - i * 864000000).toISOString().split('T')[0],
-            severity: severities[sevIndex]
-        });
-    }
-
-    // Sort by severity
-    return leaks.sort((a, b) => {
-        const val = { 'Critical': 3, 'High': 2, 'Medium': 1 };
-        return val[b.severity] - val[a.severity];
-    });
   };
 
   const handleScan = (e: React.FormEvent) => {
@@ -94,8 +59,9 @@ export const DarkWebMonitor: React.FC = () => {
         setScanStep(currentStep);
         if (currentStep >= scanLogs.length) {
             clearInterval(interval);
-            setTimeout(() => {
-                setResults(generateDeterministicLeaks(domain));
+            setTimeout(async () => {
+                const fetched = await fetchLeaks(domain);
+                setResults(fetched);
                 setIsScanning(false);
             }, 500);
         }
@@ -232,13 +198,13 @@ export const DarkWebMonitor: React.FC = () => {
                                           </td>
                                           <td className="p-4 font-mono text-slate-300 flex items-center gap-2">
                                               <Mail size={14} className="text-slate-500 group-hover:text-blue-400 transition-colors" />
-                                              {leak.email}
+                                              {leak.domain}
                                           </td>
                                           <td className="p-4">
                                               <div className="flex items-center gap-2">
                                                   <Key size={14} className={leak.severity === 'Critical' ? 'text-danger' : 'text-slate-500'} />
                                                   <span className={`font-mono tracking-wider ${leak.severity === 'Critical' ? 'text-danger font-bold bg-danger/10 px-1 rounded' : 'text-slate-400 opacity-60'}`}>
-                                                      {leak.passwordHash.length > 20 ? `${leak.passwordHash.substring(0, 16)}...` : leak.passwordHash}
+                                                      {leak.compromised_accounts} accounts
                                                   </span>
                                               </div>
                                           </td>
@@ -249,7 +215,7 @@ export const DarkWebMonitor: React.FC = () => {
                                               </div>
                                           </td>
                                           <td className="p-4 font-mono text-xs text-muted text-right">
-                                              {leak.date}
+                                              {new Date(leak.published_at).toLocaleDateString()}
                                           </td>
                                       </tr>
                                   ))}

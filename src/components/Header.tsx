@@ -16,7 +16,7 @@ export const Header: React.FC = () => {
           <input 
             type="text" 
             placeholder="Search IoCs, IPs, domains..." 
-            className="bg-transparent border-none text-main text-sm flex-1 outline-none"
+            className="bg-transparent border-none text-main text-sm flex-1 outline-none placeholder-slate-400"
           />
           <div className="badge badge-primary px-1.5 py-0.5 text-[10px]">⌘K</div>
         </div>

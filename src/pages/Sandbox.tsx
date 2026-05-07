@@ -9,6 +9,8 @@ interface SandboxReport {
   status: 'In Progress' | 'Completed' | 'Failed';
   timestamp: string;
   verdict?: 'Malicious' | 'Suspicious' | 'Clean';
+  screenshot?: string;
+  title?: string;
 }
 
 export const Sandbox: React.FC = () => {
@@ -20,6 +22,7 @@ export const Sandbox: React.FC = () => {
     { id: 'SB-C11982', target: 'https://legit-service.com/login', type: 'URL', status: 'Completed', timestamp: '2026-03-27 09:12', verdict: 'Clean' },
   ]);
   const [loading, setLoading] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<SandboxReport | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +41,11 @@ export const Sandbox: React.FC = () => {
         id: data.jobId,
         target: input || 'Uploaded File',
         type: submissionType.toUpperCase() as any,
-        status: 'In Progress',
+        status: data.status || 'Completed', // Our backend awaits the puppeteer launch for MVP
         timestamp: new Date().toLocaleString(),
+        verdict: data.verdict,
+        title: data.title,
+        screenshot: data.screenshot
       };
       setReports([newReport, ...reports]);
       setInput('');
@@ -140,7 +146,11 @@ export const Sandbox: React.FC = () => {
             
             <div className="divide-y divide-white/5 overflow-y-auto custom-scrollbar flex-1">
               {reports.map((report) => (
-                <div key={report.id} className="p-5 hover:bg-white/2 transition-all group cursor-pointer">
+                <div 
+                  key={report.id} 
+                  className="p-5 hover:bg-white/2 transition-all group cursor-pointer"
+                  onClick={() => setSelectedReport(report)}
+                >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[9px] font-mono p-1 bg-white/5 border border-white/10 rounded text-muted">{report.id}</span>
                     <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${
@@ -175,6 +185,56 @@ export const Sandbox: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Detonation Results Modal */}
+      {selectedReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setSelectedReport(null)}>
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-white/5 flex justify-between items-start bg-slate-950">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xs font-mono p-1 bg-white/5 border border-white/10 rounded text-muted">{selectedReport.id}</span>
+                  <span className={`text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded ${
+                      selectedReport.verdict === 'Malicious' ? 'bg-danger/20 text-danger' : 
+                      selectedReport.verdict === 'Clean' ? 'bg-green-500/20 text-green-400' :
+                      'bg-warning/20 text-warning'
+                    }`}>
+                      {selectedReport.status === 'In Progress' ? 'ANALYZING' : selectedReport.verdict || 'PENDING'}
+                  </span>
+                </div>
+                <h2 className="text-xl font-bold text-white break-all">{selectedReport.target}</h2>
+                {selectedReport.title && <p className="text-sm text-slate-400 mt-1">Page Title: "{selectedReport.title}"</p>}
+              </div>
+              <button onClick={() => setSelectedReport(null)} className="text-slate-500 hover:text-white p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto bg-slate-900 flex-1">
+              {selectedReport.status === 'In Progress' ? (
+                <div className="flex flex-col items-center justify-center py-20 text-primary">
+                  <Activity size={48} className="animate-spin mb-4" />
+                  <p className="animate-pulse font-bold tracking-widest uppercase">Detonating Payload...</p>
+                </div>
+              ) : selectedReport.screenshot ? (
+                <div className="space-y-4">
+                   <h3 className="text-sm font-bold uppercase tracking-widest text-muted flex items-center gap-2">
+                     <Activity size={16} /> Live Headless Screenshot Render
+                   </h3>
+                   <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl bg-black">
+                     <img src={selectedReport.screenshot} alt="Detonation Screenshot" className="w-full h-auto object-contain max-h-[500px]" />
+                   </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                  <Box size={48} className="mb-4 opacity-20" />
+                  <p>No visual artifacts captured for this payload.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

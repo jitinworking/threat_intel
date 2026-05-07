@@ -2,9 +2,13 @@ import express from 'express';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
+import dns from 'dns';
+import crypto from 'crypto';
+import { analyzePayload } from './analyzer.js';
 import { initDB, getDB } from './db.js';
 import { startCronJobs } from './cron.js';
 import { runAllFeeds } from './feeds/index.js';
+import { detonateUrl } from './sandbox.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -116,6 +120,66 @@ app.post('/api/iocs', async (req, res) => {
     if (err.message.includes('UNIQUE')) {
       return res.status(409).json({ error: 'This IoC already exists.' });
     }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/parse-report — Parse raw text and extract IoCs
+app.post('/api/parse-report', async (req, res) => {
+  const db = getDB();
+  const { reportText } = req.body;
+  if (!reportText) return res.status(400).json({ error: 'No report text provided' });
+
+  const iocs = [];
+  
+  // IP Extraction (excluding obvious local IPs)
+  const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+  const ips = reportText.match(ipv4Regex) || [];
+  ips.forEach(ip => {
+    if (!ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.')) {
+      iocs.push({ ioc: ip, type: 'ipv4' });
+    }
+  });
+
+  // SHA256 Extraction
+  const sha256Regex = /\b[A-Fa-f0-9]{64}\b/g;
+  const sha256s = reportText.match(sha256Regex) || [];
+  sha256s.forEach(hash => iocs.push({ ioc: hash.toLowerCase(), type: 'sha256_hash' }));
+
+  // MD5 Extraction
+  const md5Regex = /\b[A-Fa-f0-9]{32}\b/g;
+  const md5s = reportText.match(md5Regex) || [];
+  md5s.forEach(hash => iocs.push({ ioc: hash.toLowerCase(), type: 'md5_hash' }));
+
+  // Domain Extraction (simple)
+  const domainRegex = /\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|org|net|info|biz|io|co|me|xyz|lat|ru|cn)\b/gi;
+  const domains = reportText.match(domainRegex) || [];
+  domains.forEach(d => iocs.push({ ioc: d.toLowerCase(), type: 'domain' }));
+
+  let inserted = 0;
+  // Deduplicate memory
+  const unique = new Map();
+  for (const item of iocs) {
+    if (!unique.has(item.ioc)) unique.set(item.ioc, item.type);
+  }
+
+  try {
+    for (const [iocVal, iocType] of unique.entries()) {
+      try {
+        await db.execute({
+          sql: `INSERT INTO iocs (ioc, ioc_type, malware_printable, confidence_level, source, tags, first_seen)
+                VALUES (?, ?, ?, ?, 'Auto-Parsed Report', ?, datetime('now'))`,
+          args: [iocVal, iocType, '', 100, JSON.stringify(['parsed', 'report'])]
+        });
+        inserted++;
+      } catch(e) {
+        // ignore unique constraint
+      }
+    }
+    
+    if (inserted > 0) broadcast('new_iocs', { count: inserted });
+    res.json({ success: true, count: inserted });
+  } catch(err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -396,20 +460,94 @@ app.get('/api/investigate/:id', async (req, res) => {
   }
 });
 
-// POST /api/sandbox — Mock sandbox submission
-app.post('/api/sandbox', (req, res) => {
+// POST /api/sandbox — Live URL Detonation using Puppeteer
+app.post('/api/sandbox', async (req, res) => {
   const { ioc, type } = req.body;
-  const db = getDB();
-  
   const jobId = `SB-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
   
-  res.json({ 
-    ok: true, 
-    jobId, 
-    status: 'In Progress', 
-    target: ioc,
-    eta: '45 seconds'
-  });
+  if (type === 'url') {
+    let targetUrl = ioc;
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'http://' + targetUrl;
+    }
+    
+    // We do this asynchronously to match the real-world sandbox architecture where
+    // you submit a job and poll, but for our MVP frontend, we'll just await it!
+    const result = await detonateUrl(targetUrl);
+    
+    if (!result.success) {
+      return res.status(500).json({ error: result.error, jobId });
+    }
+
+    res.json({
+      jobId,
+      verdict: result.verdict,
+      title: result.title,
+      screenshot: result.screenshot,
+      status: 'Completed',
+      target: ioc
+    });
+  } else {
+    // Mock for file uploads
+    setTimeout(() => {
+      res.json({ 
+        ok: true, 
+        jobId, 
+        status: 'In Progress', 
+        target: ioc,
+        eta: '45 seconds'
+      });
+    }, 1500);
+  }
+});
+
+// POST /api/rules/validate — Parse YARA/Sigma and query historical matches
+app.post('/api/rules/validate', async (req, res) => {
+  const { rule } = req.body;
+  if (!rule) return res.status(400).json({ error: 'Rule content required' });
+
+  try {
+    const db = getDB();
+    const isYara = rule.toLowerCase().includes('rule ') && rule.includes('condition:');
+    const isSigma = rule.toLowerCase().includes('logsource:') && rule.includes('detection:');
+
+    // Simple mock parser: look for IPs or specific strings to search the DB
+    const stringMatches = [...rule.matchAll(/["']([^"']{4,})["']/g)].map(m => m[1]);
+    const ipMatches = [...rule.matchAll(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)].map(m => m[0]);
+    
+    const indicators = [...new Set([...stringMatches, ...ipMatches])].slice(0, 5); // Take up to 5 indicators to query
+
+    if (indicators.length === 0) {
+      return res.json({ 
+        ok: true, 
+        type: isYara ? 'YARA' : isSigma ? 'Sigma' : 'Unknown',
+        matches: [], 
+        message: 'Rule parsed successfully but no generic string/IP indicators could be extracted for retrospective hunting.'
+      });
+    }
+
+    // Search historical IoCs
+    const matches = [];
+    for (const indicator of indicators) {
+      const resData = await db.execute({
+        sql: `SELECT ioc, ioc_type, malware, created_at, source FROM iocs WHERE ioc LIKE ? OR malware LIKE ? LIMIT 10`,
+        args: [`%${indicator}%`, `%${indicator}%`]
+      });
+      matches.push(...resData.rows);
+    }
+
+    // Deduplicate by ioc
+    const uniqueMatches = Array.from(new Map(matches.map(item => [item.ioc, item])).values());
+
+    res.json({
+      ok: true,
+      type: isYara ? 'YARA' : isSigma ? 'Sigma' : 'Unknown',
+      extractedIndicators: indicators,
+      matches: uniqueMatches
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET /api/pivot/:ioc — JARM/SSL Certificate Pivoting
@@ -478,7 +616,11 @@ app.get('/api/apts', async (req, res) => {
       ...r,
       aliases: JSON.parse(r.aliases || '[]'),
       targets: JSON.parse(r.targets || '[]'),
-      motivations: JSON.parse(r.motivations || '[]')
+      motivations: JSON.parse(r.motivations || '[]'),
+      malware: JSON.parse(r.malware || '[]'),
+      playbook: JSON.parse(r.playbook || '[]'),
+      associatedCVEs: JSON.parse(r.associatedCVEs || '[]'),
+      fingerprint: JSON.parse(r.fingerprint || '{}')
     }));
     res.json(parsed);
   } catch (err) {
@@ -508,6 +650,104 @@ app.get('/api/ransomware', async (req, res) => {
   }
 });
 
+// POST /api/copilot/chat — RAG Mock integration
+app.post('/api/copilot/chat', async (req, res) => {
+  const db = getDB();
+  const { prompt } = req.body;
+  
+  if (!prompt) return res.status(400).json({ error: 'Prompt required' });
+  
+  const p = prompt.toLowerCase();
+  
+  try {
+    // 1. Check for Auto-Triage Report Request
+    if (p.includes('report') || p.includes('triage') || p.includes('briefing')) {
+       // Extract potential IoC (simple IP/Domain regex)
+       const ipMatch = p.match(/(?:\d{1,3}\.){3}\d{1,3}/);
+       const domainMatch = p.match(/[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/);
+       
+       const targetIoc = (ipMatch && ipMatch[0]) || (domainMatch && domainMatch[0]);
+       
+       if (targetIoc) {
+          const iocRes = await db.execute({
+             sql: 'SELECT * FROM iocs WHERE ioc = ? OR ioc LIKE ?',
+             args: [targetIoc, `%${targetIoc}%`]
+          });
+          
+          if (iocRes.rows.length > 0) {
+             const ioc = iocRes.rows[0];
+             // Fetch correlations
+             const corrRes = await db.execute({
+                sql: 'SELECT * FROM iocs WHERE malware = ? AND id != ? LIMIT 3',
+                args: [ioc.malware || 'Trickbot', ioc.id]
+             });
+             
+             // Generate Report Object
+             return res.json({
+               type: 'report',
+               content: {
+                 title: `Executive Triage Report: ${targetIoc}`,
+                 target: targetIoc,
+                 type: ioc.ioc_type,
+                 firstSeen: ioc.first_seen || new Date().toISOString().split('T')[0],
+                 malwareFamily: ioc.malware || 'Unknown/Generic',
+                 confidence: ioc.confidence_level || 85,
+                 mitre: JSON.parse(ioc.mitre_techniques || '["T1059", "T1105"]'),
+                 correlatedInfrastructure: corrRes.rows.map(r => r.ioc),
+                 summary: `The indicator ${targetIoc} was automatically triaged. It is a known ${ioc.ioc_type} associated with the ${ioc.malware || 'unidentified'} malware family. Retrospective hunting identified ${corrRes.rows.length} related pieces of infrastructure. Immediate defensive action is recommended.`,
+                 recommendations: [
+                   `Block ${ioc.ioc_type} on egress firewalls.`,
+                   `Hunt for related infrastructure: ${corrRes.rows.map(r=>r.ioc).join(', ')}`,
+                   `Review EDR telemetry for associated MITRE techniques.`
+                 ]
+               }
+             });
+          } else {
+             return res.json({
+               type: 'text',
+               content: `I could not find the indicator **${targetIoc}** in our active intelligence database to generate a triage report.`
+             });
+          }
+       }
+    }
+    
+    // 2. RAG Query for Threat Actors or Malware
+    const keywords = ['lazarus', 'apt29', 'apt28', 'trickbot', 'cobalt strike', 'plugx', 'log4j', 'iran', 'china', 'russia'];
+    const matchedKeyword = keywords.find(k => p.includes(k));
+    
+    if (matchedKeyword) {
+       // Query DB for context
+       const iocRes = await db.execute({
+          sql: 'SELECT ioc, ioc_type, source FROM iocs WHERE malware LIKE ? OR tags LIKE ? ORDER BY created_at DESC LIMIT 5',
+          args: [`%${matchedKeyword}%`, `%${matchedKeyword}%`]
+       });
+       
+       let responseText = `Here is the intelligence I pulled from the matrix regarding **${matchedKeyword.toUpperCase()}**:\n\n`;
+       
+       if (iocRes.rows.length > 0) {
+          responseText += `I found **${iocRes.rows.length}** recent indicators of compromise:\n`;
+          iocRes.rows.forEach(r => {
+             responseText += `- \`${r.ioc}\` (${r.ioc_type}) via ${r.source}\n`;
+          });
+          responseText += `\nBased on these findings, I recommend pivoting on these indicators in the Threat Graph to uncover broader infrastructure.`;
+       } else {
+          responseText += `While this is a known threat profile, we currently have **0 active indicators** in our local database for this specific query over the last 30 days.`;
+       }
+       
+       return res.json({ type: 'text', content: responseText });
+    }
+    
+    // 3. Fallback General Response
+    return res.json({
+       type: 'text',
+       content: "I am connected to the global intelligence matrix. I can summarize activity for specific APTs (e.g., 'Lazarus', 'APT29'), look up malware families, or generate executive triage reports for specific IPs or Domains (e.g., 'Generate a triage report for 185.12.x.x')."
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // =================== START ===================
 const PORT = process.env.PORT || 3001;
 
@@ -524,6 +764,153 @@ setTimeout(async () => {
 
 // Start cron jobs
 startCronJobs();
+
+// GET /api/darkweb
+app.get('/api/darkweb', async (req, res) => {
+  const db = getDB();
+  try {
+    const data = await db.execute('SELECT * FROM darkweb_leaks ORDER BY published_at DESC LIMIT 50');
+    res.json(data.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/emulation
+app.get('/api/emulation', async (req, res) => {
+  const db = getDB();
+  try {
+    const data = await db.execute('SELECT * FROM emulation_plans ORDER BY id ASC');
+    res.json(data.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/assets
+app.get('/api/assets', async (req, res) => {
+  const db = getDB();
+  try {
+    const data = await db.execute('SELECT * FROM assets ORDER BY id ASC');
+    res.json(data.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/assets
+app.post('/api/assets', async (req, res) => {
+  const db = getDB();
+  const { type, value } = req.body;
+  if (!type || !value) return res.status(400).json({ error: 'type and value required' });
+  try {
+    await db.execute({ sql: 'INSERT INTO assets (type, value) VALUES (?, ?)', args: [type, value] });
+    const data = await db.execute('SELECT * FROM assets ORDER BY id DESC LIMIT 1');
+    res.json(data.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/assets/:id
+app.delete('/api/assets/:id', async (req, res) => {
+  const db = getDB();
+  try {
+    await db.execute({ sql: 'DELETE FROM assets WHERE id = ?', args: [req.params.id] });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/analyze-payload
+app.post('/api/analyze-payload', (req, res) => {
+  const { payload } = req.body;
+  if (!payload) return res.status(400).json({ error: 'Payload required' });
+  
+  // Simulate an LLM taking a moment to analyze
+  setTimeout(() => {
+    try {
+      const result = analyzePayload(payload);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: 'Analysis failed' });
+    }
+  }, 1500);
+});
+
+// POST /api/shadow-map
+app.post('/api/shadow-map', async (req, res) => {
+  const { seed } = req.body;
+  if (!seed) return res.status(400).json({ error: 'Seed required' });
+  
+  let node1 = { type: 'ip', value: '104.21.44.12', label: 'A Record (Cloudflare)' };
+  const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(seed);
+  
+  try {
+    if (isIp) {
+      // It's an IP, do a reverse lookup
+      const hostnames = await dns.promises.reverse(seed);
+      if (hostnames && hostnames.length > 0) {
+        node1 = { type: 'domain', value: hostnames[0], label: 'Reverse DNS' };
+      } else {
+        node1 = { type: 'domain', value: `host-${seed.replace(/\./g, '-')}.net`, label: 'Reverse DNS (Mock)' };
+      }
+    } else {
+      // It's a domain, resolve to IP
+      const ips = await dns.promises.resolve4(seed);
+      if (ips && ips.length > 0) {
+        node1 = { type: 'ip', value: ips[0], label: 'A Record' };
+      } else {
+        node1 = { type: 'ip', value: '192.0.2.14', label: 'A Record (Mock)' };
+      }
+    }
+  } catch (err) {
+    // DNS resolution failed, use fallback
+    if (isIp) {
+      node1 = { type: 'domain', value: `host-${seed.replace(/\./g, '-')}.net`, label: 'Reverse DNS (Mock)' };
+    } else {
+      node1 = { type: 'ip', value: '192.0.2.14', label: 'A Record (Mock)' };
+    }
+  }
+
+  // Generate deterministic mock data based on the seed
+  const hash = crypto.createHash('md5').update(seed).digest('hex');
+  
+  const node2 = { 
+    type: isIp ? 'asn' : 'domain', 
+    value: isIp ? `AS${parseInt(hash.substring(0, 4), 16)}` : `dev.${seed}`, 
+    label: isIp ? 'BGP ASN' : 'Subdomain (Exposed)' 
+  };
+  
+  // JARM is a 62 character hex string
+  const jarm = hash + crypto.createHash('md5').update(hash).digest('hex').substring(0, 30);
+  const node3 = { type: 'jarm', value: jarm, label: 'JARM Fingerprint' };
+  
+  const node4 = { 
+    type: 'cert', 
+    value: `Let's Encrypt (SNI: ${isIp ? node1.value : seed})`, 
+    label: 'SSL Cert Issuer' 
+  };
+
+  res.json({
+    root: seed,
+    nodes: [
+      { type: isIp ? 'ip' : 'domain', value: seed, label: 'Root Target' },
+      node1,
+      node2,
+      node3,
+      node4
+    ],
+    links: [
+      { source: seed, target: node1.value },
+      { source: seed, target: node2.value },
+      { source: node2.value, target: node3.value },
+      { source: seed, target: node4.value },
+      { source: node2.value, target: node4.value }
+    ]
+  });
+});
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[SERVER] Threat Intel Backend running on http://0.0.0.0:${PORT}`);
