@@ -81,7 +81,7 @@ export const Dashboard: React.FC = () => {
             <div className="text-[10px] text-muted uppercase font-bold tracking-tighter">Current Velocity</div>
             <div className="text-xs font-mono text-danger flex items-center gap-1"><TrendingUp size={10} /> +124% Spike</div>
           </div>
-          <button className="bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/30 px-3 py-1.5 rounded text-xs font-bold transition-all">
+          <button onClick={() => window.dispatchEvent(new CustomEvent('changeTab', { detail: 'oracle' }))} className="bg-secondary/10 hover:bg-secondary/20 text-secondary border border-secondary/30 px-3 py-1.5 rounded text-xs font-bold transition-all">
             Open Oracle
           </button>
         </div>

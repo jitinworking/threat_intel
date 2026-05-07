@@ -74,7 +74,15 @@ function App() {
       }
     };
 
-    return () => ws.close();
+    const handleTabChange = (e: any) => {
+      if (e.detail) setActiveTab(e.detail);
+    };
+    window.addEventListener('changeTab', handleTabChange);
+
+    return () => {
+      ws.close();
+      window.removeEventListener('changeTab', handleTabChange);
+    };
   }, [addToast]);
 
   const renderContent = () => {
