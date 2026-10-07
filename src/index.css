@@ -1,0 +1,175 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Enterprise Light Theme */
+    --color-bg: #F6F8FA;
+    --color-surface: #FFFFFF;
+    --color-surface-elevated: #F8FAFC;
+    --color-surface-hover: #F1F4F8;
+    
+    --color-border: #E3E8EF;
+    --color-border-strong: #CBD5E1;
+    
+    --color-primary: #2563EB;
+    --color-primary-hover: #1D4ED8;
+    --color-primary-muted: rgba(37, 99, 235, 0.08);
+    
+    --color-text: #111827;
+    --color-text-secondary: #475467;
+    --color-text-muted: #667085;
+    
+    --color-critical: #DC2626;
+    --color-critical-muted: rgba(220, 38, 38, 0.08);
+    
+    --color-high: #EA580C;
+    --color-high-muted: rgba(234, 88, 12, 0.08);
+    
+    --color-medium: #D97706;
+    --color-medium-muted: rgba(217, 119, 6, 0.08);
+    
+    --color-low: #2563EB;
+    --color-low-muted: rgba(37, 99, 235, 0.08);
+    
+    --color-success: #16A34A;
+    --color-success-muted: rgba(22, 163, 74, 0.08);
+
+    /* Clean subtle shadow */
+    --surface-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  }
+ 
+  .dark {
+    /* Enterprise Dark Theme (SOC Workstation) */
+    --color-bg: #0B0F14;
+    --color-surface: #11161D;
+    --color-surface-elevated: #171D25;
+    --color-surface-hover: #1C232D;
+    
+    --color-border: #252D38;
+    --color-border-strong: #364152;
+    
+    --color-primary: #4F8CFF;
+    --color-primary-hover: #3B7BF0;
+    --color-primary-muted: rgba(79, 140, 255, 0.12);
+    
+    --color-text: #F4F7FA;
+    --color-text-secondary: #A3ADBA;
+    --color-text-muted: #6F7B8A;
+    
+    --color-critical: #FF4D5E;
+    --color-critical-muted: rgba(255, 77, 94, 0.12);
+    
+    --color-high: #FF9F43;
+    --color-high-muted: rgba(255, 159, 67, 0.12);
+    
+    --color-medium: #F2C94C;
+    --color-medium-muted: rgba(242, 201, 76, 0.12);
+    
+    --color-low: #4F8CFF;
+    --color-low-muted: rgba(79, 140, 255, 0.12);
+    
+    --color-success: #2AC769;
+    --color-success-muted: rgba(42, 199, 105, 0.12);
+
+    --surface-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--color-primary);
+    color: #ffffff;
+  }
+}
+
+@layer utilities {
+  /* Restrained solid card replacement for glassmorphism */
+  .glass-panel {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--surface-shadow);
+  }
+
+  .glass-panel-hover:hover {
+    background-color: var(--color-surface-hover);
+    border-color: var(--color-border-strong);
+  }
+
+  /* Subtle scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-border);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-border-strong);
+  }
+
+  /* Enterprise Density Adjustments */
+  .density-compact .data-table-cell {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+    font-size: 11.5px !important;
+  }
+  .density-compact .data-table-header {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+  .density-compact .card-padded {
+    padding: 12px !important;
+  }
+}
+
+/* Modal and Command Palette Backdrop Blur strictly */
+.modal-overlay {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  @page { margin: 1.5cm; size: A4; }
+  body {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
