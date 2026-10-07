@@ -1,12 +1,19 @@
 /**
  * Enterprise Application Configuration
  *
- * In local development, defaults to localhost:3001.
- * In production (e.g. Vercel deployment talking to Oracle Cloud backend),
- * configure VITE_BACKEND_URL in Vercel project environment variables.
+ * Supports Vercel environment variables:
+ * - VITE_API_URL or VITE_BACKEND_URL for HTTP REST API
+ * - VITE_WS_URL for real-time WebSocket connection
+ *
+ * In local development, defaults to http://localhost:3001 and ws://localhost:3001.
  */
 
-const rawBackend = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001').trim();
+const rawBackend = (
+  import.meta.env.VITE_API_URL || 
+  import.meta.env.VITE_BACKEND_URL || 
+  'http://localhost:3001'
+).trim();
+
 export const BACKEND_URL = rawBackend.replace(/\/$/, '');
 
 export const WS_URL = import.meta.env.VITE_WS_URL 
