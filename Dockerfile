@@ -1,17 +1,26 @@
-# Stage 1: Build the React Frontend
-FROM node:20-alpine as build-stage
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+FROM node:20-slim
 
-# Stage 2: Run the Express Backend
-FROM node:20-alpine
+# Install native compilation dependencies for better-sqlite3
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
+
+# Copy package definitions
 COPY package*.json ./
-RUN npm install --production
-COPY --from=build-stage /app/dist ./dist
+
+# Install dependencies needed for server runtime (including better-sqlite3)
+RUN npm install --omit=dev
+
+# Copy backend server files
 COPY server ./server
-EXPOSE 3001 5173
+
+EXPOSE 3001
+
+ENV PORT=3001 \
+    NODE_ENV=production
+
 CMD ["node", "server/index.js"]

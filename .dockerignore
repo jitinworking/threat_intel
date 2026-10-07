@@ -3,4 +3,6 @@ dist
 .git
 *.log
 .env
-data/*.db
+.env.*
+server/*.db-shm
+server/*.db-wal
