@@ -3,6 +3,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "http://92.4.90.253:3001/api/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
